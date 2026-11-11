@@ -1,0 +1,2748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCANE ARENA — Magic Wave Shooter</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#07030f;
+    font-family:"Segoe UI", Arial, sans-serif; user-select:none; }
+  #game { display:block; width:100vw; height:100vh; cursor:crosshair; }
+
+  /* ---------------- HERO SELECT MENU ---------------- */
+  #menu { position:fixed; inset:0; background:radial-gradient(ellipse at 50% 120%, #2b0a4a 0%, #0b0420 55%, #05020c 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; z-index:10; }
+  #menu.hidden, .hidden { display:none !important; }
+  #title { font-size:min(5vw,64px); font-weight:900; letter-spacing:4px;
+    background:linear-gradient(90deg,#ff5f6d,#ffc371,#7b2ff7,#00e5ff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 40px rgba(123,47,247,.35); }
+  #subtitle { color:#b8a6e8; font-size:14px; letter-spacing:2px; margin-top:-16px; }
+  #menuL1, #menuL2 { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  /* layer-2: character select heading */
+  #title2 { font-size:min(4vw,50px); font-weight:900; letter-spacing:4px;
+    background:linear-gradient(90deg,#00e5ff,#7bdd8a,#ffd23f);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 40px rgba(0,229,255,.3); }
+  #subtitle2 { color:#b8a6e8; font-size:13.5px; letter-spacing:2px; margin-top:-8px; }
+  #backL1 { padding:14px 30px; font-size:16px; font-weight:800; color:#cfe;
+    background:rgba(123,47,247,.22); border:2px solid #4b2f86; border-radius:40px; cursor:pointer;
+    transition:transform .12s, border-color .12s; }
+  #backL1:hover { transform:scale(1.05); border-color:#8a6cff; }
+  #heroes { display:flex; gap:22px; flex-wrap:wrap; justify-content:center; }
+  .hero-card { width:190px; border:2px solid #3c2a6b; border-radius:16px; padding:16px 14px;
+    background:linear-gradient(180deg,rgba(40,16,70,.9),rgba(12,4,26,.9)); cursor:pointer;
+    transition:transform .15s, border-color .15s, box-shadow .15s; text-align:center; color:#efe8ff; }
+  .hero-card:hover, .hero-card.sel { transform:translateY(-8px) scale(1.04); border-color:#0ff; box-shadow:0 0 30px rgba(0,229,255,.35); }
+  .hero-card canvas { width:96px; height:96px; }
+  .hero-card h3 { margin:6px 0 2px; font-size:19px; }
+  .hero-card .cls { color:#8ef; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; }
+  .hero-card p { font-size:11.5px; color:#a99ccb; margin-top:8px; min-height:46px; line-height:1.4; }
+  .hero-card .pw { margin-top:8px; font-size:11px; color:#ffd76d; }
+  #startBtn { padding:14px 64px; font-size:20px; font-weight:800; letter-spacing:3px; color:#06111a;
+    background:linear-gradient(90deg,#00e5ff,#7b2ff7); border:none; border-radius:40px; cursor:pointer;
+    box-shadow:0 0 34px rgba(0,229,255,.5); transition:transform .12s; }
+  #startBtn:hover { transform:scale(1.06); }
+  #controls { color:#7768a8; font-size:12.5px; text-align:center; line-height:1.8; }
+  #controls b { color:var(--c,#cfe); }
+  #netBtn { padding:14px 30px; font-size:17px; font-weight:800; letter-spacing:2px; color:#06111a;
+    background:linear-gradient(90deg,#27ae60,#7ddb8a); border:none; border-radius:40px; cursor:pointer;
+    box-shadow:0 0 26px rgba(39,174,96,.45); transition:transform .12s; }
+  #netBtn:hover { transform:scale(1.06); }
+
+  /* multiplayer panel */
+  #netPanel { position:fixed; inset:0; background:rgba(4,1,12,.92); z-index:20;
+    display:flex; align-items:center; justify-content:center; }
+  .np-card { width:min(460px, 92vw); background:linear-gradient(180deg,rgba(40,16,70,.95),rgba(12,4,26,.95));
+    border:2px solid #3c2a6b; border-radius:18px; padding:26px 30px; text-align:center; color:#efe6ff; }
+  .np-card h2, #npTitle { font-size:26px; font-weight:900; letter-spacing:3px;
+    background:linear-gradient(90deg,#00e5ff,#7bdd8a); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .np-card p { color:#a99ccb; font-size:13px; margin:10px 0 4px; line-height:1.6; }
+  .np-small { font-size:12px !important; }
+  #npChoice, .np-card > div { margin:14px 0; }
+  #npCode { font-size:44px; font-weight:900; letter-spacing:10px; color:#7ddb8a; margin:8px 0;
+    text-shadow:0 0 18px rgba(125,219,138,.5); font-family:Consolas, monospace; }
+  .np-card button { padding:11px 26px; margin:6px; font-size:15px; font-weight:800; color:#06111a;
+    background:linear-gradient(90deg,#00e5ff,#52d9ff); border:none; border-radius:30px; cursor:pointer; }
+  .np-card button:hover { transform:scale(1.05); }
+  #npCodeIn { width:220px; padding:12px; font-size:26px; text-align:center; letter-spacing:8px;
+    font-family:Consolas, monospace; text-transform:uppercase; border-radius:10px; border:2px solid #3c2a6b;
+    background:#12071f; color:#7ddb8a; outline:none; }
+  #npHostStatus, #npJoinStatus { margin-top:12px; font-size:13px; color:#8ef; min-height:18px; }
+  .np-card .hidden { display:none; }
+  #helpBtn { padding:14px 26px; font-size:17px; font-weight:800; letter-spacing:2px; color:#06111a;
+    background:linear-gradient(90deg,#ffd23f,#ffec9d); border:none; border-radius:40px; cursor:pointer;
+    box-shadow:0 0 26px rgba(255,210,63,.4); transition:transform .12s; }
+  #helpBtn:hover { transform:scale(1.06); }
+
+  /* how-to-play panel */
+  .help-card { width:min(640px, 94vw); max-height:84vh; overflow-y:auto; text-align:left; }
+  .help-title { color:#8ef; font-weight:800; letter-spacing:2px; margin:15px 0 5px; font-size:14px; }
+  .help-step { margin:7px 0; font-size:13.5px; color:#d9cdf5; line-height:1.65; }
+  .help-step b { color:#ffd76d; }
+  .help-step .kbd { display:inline-block; padding:1px 9px; margin:0 3px; border-radius:6px;
+    background:#241040; border:1px solid #4b2f86; color:#8ef; font-weight:800; }
+  .pow-table { width:100%; border-collapse:collapse; margin:8px 0; font-size:12.5px; }
+  .pow-table td, .pow-table th { border-bottom:1px solid rgba(255,255,255,.08); padding:5px 8px; color:#cfc3ea; text-align:left; }
+  .pow-table th { color:#8ef; font-size:11px; letter-spacing:2px; }
+  .pow-table td:first-child { color:#ffd76d; font-weight:800; white-space:nowrap; }
+  #hpClose { margin:18px auto 4px; display:block; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<!-- ================= LAYER 1 : TITLE SCREEN ================= -->
+<div id="menu">
+  <div id="menuL1">
+    <div id="title">⚔️ BATTLE ARENA ⚔️</div>
+    <div id="subtitle">THE NISHANT ARENA &nbsp;·&nbsp; SURVIVE THE WAVES &nbsp;·&nbsp; UNLEASH MAGIC &nbsp;·&nbsp; SLAY THE BOSSES</div>
+    <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; justify-content:center;">
+      <button id="goHeroBtn">ENTER THE ARENA ▶</button>
+      <button id="netBtn">PLAY WITH FRIEND 🌐</button>
+      <button id="helpBtn">HOW TO PLAY 📖</button>
+    </div>
+    <div id="controls">
+      <b>WASD / Arrows</b> move &nbsp;·&nbsp; <b>Mouse</b> aim &nbsp;·&nbsp; <b>Click / Hold</b> shoot &nbsp;·&nbsp; <b>SPACE</b> superpower &nbsp;·&nbsp; <b>E</b> ★SKILL (every 4s)
+      &nbsp;·&nbsp; <b>ESC / ✕</b> exit &nbsp;·&nbsp; <b>P</b> pause &nbsp;·&nbsp; <b>M</b> music &nbsp;·&nbsp; <b>R</b> restart
+    </div>
+  </div>
+
+  <!-- ================= LAYER 2 : CHARACTER SELECT ================= -->
+  <div id="menuL2" class="hidden">
+    <div id="title2">CHOOSE YOUR HERO</div>
+    <div id="subtitle2">every hero carries a unique ⚡ superpower — click a character, then enter the arena</div>
+    <div id="heroes"></div>
+    <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; justify-content:center;">
+      <button id="backL1">← BACK</button>
+      <button id="startBtn">ENTER THE ARENA ⚔️</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MULTIPLAYER PANEL ================= -->
+<div id="netPanel" class="hidden">
+  <div class="np-card">
+    <div id="npTitle">MULTIPLAYER</div>
+    <div id="npChoice">
+      <button id="npHost">🏢 HOST GAME</button>
+      <button id="npJoin">🔗 JOIN GAME</button>
+    </div>
+    <div id="npHostView" class="hidden">
+      <div id="npHostMode">
+        <p style="margin-top:2px">Where is your friend?</p>
+        <button id="npLanHost">🏠 SAME WiFi</button>
+        <button id="npNetHost">🌍 DIFFERENT WiFi</button>
+      </div>
+      <div id="npHostMain" class="hidden">
+        <p>Your special code:</p>
+        <div id="npCode">-----</div>
+        <p id="npHostHow" class="np-small"></p>
+        <p id="npAddrLine" class="np-small hidden">Friend (same WiFi) opens: <b id="npAddr">http://...</b></p>
+        <button id="npStart">START FIGHTING ▶</button>
+        <div id="npHostStatus"></div>
+      </div>
+    </div>
+    <div id="npJoinView" class="hidden">
+      <p>Enter your friend's code:</p>
+      <input id="npCodeIn" maxlength="6" autocomplete="off" spellcheck="false" placeholder="e.g. K7Q2X">
+      <button id="npConnect">CONNECT 🔗</button>
+      <p class="np-small">Works on the same WiFi<br>or across the world 🌍 (internet).</p>
+      <div id="npJoinStatus"></div>
+    </div>
+    <button id="npBack">← BACK</button>
+  </div>
+</div>
+
+<!-- ================= HOW TO PLAY PANEL ================= -->
+<div id="helpPanel" class="hidden">
+  <div class="np-card help-card">
+    <div id="hpTitle">HOW TO PLAY</div>
+
+    <div class="help-title">🎮 THE 3 BASICS</div>
+    <div class="help-step">1 · <b>MOVE</b> — press <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> (or the Arrow keys) to walk around the arena.</div>
+    <div class="help-step">2 · <b>AIM &amp; SHOOT</b> — move the <b>mouse</b> to aim at things, then <b>hold the LEFT mouse button</b>. Your hero blasts spells automatically while held.</div>
+    <div class="help-step">3 · <b>SUPERPOWER</b> — press <span class="kbd">SPACE</span>. Every hero has their own huge magic power, and it fires <b>exactly where your mouse points</b>.</div>
+    <div class="help-step">4 · <b>★ SPECIAL SKILL</b> — press <span class="kbd">E</span> any time (recharges every <b>4 seconds</b>): your hero flashes their <b>unique emote + dialogue</b>, hits nearby enemies for <b>10% of their max HP</b> plus their own skill effect — 🔥Blaze burns · ⚡Volt & 🌪Gale surge damage · ❄Frost ice-armors · 🌑Shadow blinks untouchable · 🪨Terra shockwaves enemies away · ☀Sol heals 25% · ☠Venom drops a toxic cloud — and a <b>🛡 shield</b> protects you during the flash!</div>
+
+    <div class="help-title">⚡ THE POWER BUTTON</div>
+    <div class="help-step">Look at the <b>⚡ circle in the top-left HUD</b> (next to your health bar) — that is your power button.<br>
+      • <b>Glowing &amp; bright</b> = power is READY → smash <b>SPACE</b>!<br>
+      • <b>Dark</b> = cooling down — a shadow sweeps around the circle as the countdown ticks.<br>
+      Powers are the strongest thing you have — don't save them, <b>USE THEM!</b> 💥</div>
+
+    <div class="help-title">🧙 ALL 8 HERO POWERS (press SPACE)</div>
+    <table class="pow-table">
+      <tr><th>HERO</th><th>POWER</th><th>WHAT IT DOES (cooldown)</th></tr>
+      <tr><td>🔥 Blaze</td><td>FLAME NOVA</td><td>Fire ring bursts around you — burns everything nearby (9s)</td></tr>
+      <tr><td>⚡ Volt</td><td>CHAIN LIGHTNING</td><td>Lightning zips between up to 7 enemies (7s)</td></tr>
+      <tr><td>❄️ Frost</td><td>BLIZZARD</td><td>Snowstorm around you — slows &amp; shreds enemy packs (11s)</td></tr>
+      <tr><td>🌙 Shadow</td><td>SHADOW VORTEX</td><td>Blink toward the cursor, slicing every enemy on the path (8s)</td></tr>
+      <tr><td>🪨 Terra</td><td>EARTHQUAKE</td><td>Ground slam — heavy damage + stuns all around you (12s)</td></tr>
+      <tr><td>🌀 Gale</td><td>TORNADO</td><td>Whirlwind at your cursor — drags enemies in and grinds them (8s)</td></tr>
+      <tr><td>☀️ Sol</td><td>SOLAR BEAM</td><td>Enormous golden laser toward your cursor (10s)</td></tr>
+      <tr><td>☠️ Venom</td><td>TOXIC FOG</td><td>Poison cloud at your cursor — melts whole crowds (9s)</td></tr>
+    </table>
+
+    <div class="help-title">💡 SURVIVAL TIPS</div>
+    <div class="help-step">❤️ <b>Hearts</b> heal +30 &nbsp;·&nbsp; ⭐ <b>Stars</b> double your damage for 7s. Grab them before they vanish!</div>
+    <div class="help-step">👹 <b>Every 5th wave</b>, the ARENA TITAN boss shows up. Keep moving!</div>
+    <div class="help-step">🏠 <b>Cover matters:</b> nets, houses, poles and crystals <b>block bullets</b> (yours AND the enemies') — hide behind them and peek out. Grass slows walkers but bullets fly over it.</div>
+    <div class="help-step">⌨️ Quick keys: <b>ESC</b> or the red <b>✕</b> = exit to menu &nbsp;·&nbsp; <b>P</b> = pause &nbsp;·&nbsp; <b>M</b> = music on/off.</div>
+
+    <div class="help-title">🌐 PLAYING WITH A FRIEND</div>
+    <div class="help-step">Same WiFi: host picks <b>PLAY WITH FRIEND → HOST → SAME WiFi</b>, friend opens <b>http://host-ip:8642 → JOIN</b> with the code.<br>
+      ★ <b>Different WiFi (any distance!):</b> host picks <b>HOST → 🌍 DIFFERENT WiFi</b>, then <b>sends the friend the game file once</b> (WhatsApp / Drive). The friend opens that file in a browser, picks <b>JOIN</b> and types the code — the game world instantly livestreams through it!</div>
+    <div class="help-step">You both fight on the same map as heroes — both can press <b>SPACE</b> for powers, share hearts, and a fallen player <b>revives between waves</b>!</div>
+
+    <button id="hpClose">GOT IT — LET'S FIGHT 🔥</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================================================================
+   ARCANE ARENA — pseudo-3D magic wave shooter
+   Loop: waves of enemies -> every 5th wave a BOSS -> endless.
+================================================================ */
+
+const cvs = document.getElementById("game");
+const ctx = cvs.getContext("2d");
+let W = 0, H = 0;
+function resize(){ W = cvs.width = innerWidth; H = cvs.height = innerHeight; }
+addEventListener("resize", resize); resize();
+
+const TAU = Math.PI * 2;
+const rand = (a,b)=>a+Math.random()*(b-a);
+const clamp = (v,a,b)=>v<a?a:v>b?b:v;
+const dist = (a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const lerp = (a,b,t)=>a+(b-a)*t;
+
+/* ---------------- pseudo-3D projection ----------------
+   World floor plane; near (bottom) big, far (top) small.   */
+const WORLD_W = 1900, WORLD_H = 1250, HORIZON = 0.13;
+/* THE BORDER IS THE BLUE LINE IN YOUR MAP PHOTOS — measured from the images.
+   Fractions of photo width/height where the glowing neon line runs (inner edge). */
+const MAP_BORDER = [
+  { x0:.331, x1:.724, y0:.370, y1:.830 },   // map1 campus lawn LED line (inner edge of the glow core)
+  { x0:.060, x1:.915, y0:.475, y1:.865 },   // map2 IIMT courtyard neon (conservative inside its slanted line)
+  { x0:.214, x1:.800, y0:.260, y1:.946 },   // map3 court neon after 2-axis zoom (x: 15% side-crop, y: 11.5%/3% crop)
+];
+/* per-map zoom: map3's photo had big grass strips at the sides and the building
+   strip above the court — crop them and stretch the court to fill the arena. */
+const MAP_CROP = [
+  { l:0,    r:1,    t:0,     b:1    },      // map1: full photo
+  { l:0,    r:1,    t:0,     b:1    },      // map2: full photo
+  { l:0.15, r:0.85, t:0.115, b:0.97 },     // map3: wider AND taller court
+];
+const BORDER_GAP = 4;                      // body edge stays this far off the line
+function mapBorder(){
+  const f = MAP_BORDER[mapIndexFor(waveNum)];
+  if (!f) return { x0: 40, x1: WORLD_W-40, y0: WORLD_H*0.12, y1: WORLD_H-30 };
+  return { x0: f.x0*WORLD_W, x1: f.x1*WORLD_W, y0: f.y0*WORLD_H, y1: f.y1*WORLD_H };
+}
+function project(wx, wy){
+  const t = clamp(wy / WORLD_H, 0, 1);
+  const baseY = H * 1.04;
+  return { x: W/2 + (wx - WORLD_W/2) * (W/2100) * (0.80 + 0.42*t),
+           y: lerp(H * HORIZON, baseY, t * t * (3 - 2*t) * 0.9 + t * 0.1),
+           s: 0.5 + 0.72 * t * t * (3 - 2*t), t };
+}
+function unprojectY(sy){ // invert screen y -> world y (approx, monotonic)
+  let lo = 0, hi = WORLD_H;
+  for (let i=0;i<12;i++){ const mid=(lo+hi)/2; (project(WORLD_W/2, mid).y < sy) ? lo=mid : hi=mid; }
+  return (lo+hi)/2;
+}
+
+/* ================= AUDIO ================================= */
+let manifest = { sounds:[], characters:[], maps:[] };
+/* Your face -> the hero. Save your photo as assets/characters/player.png
+   focusX/focusY = where your face is in the photo (0..1), zoom = crop size. */
+const PHOTO = { focusX: 0.5, focusY: 0.34, zoom: 0.68 };
+/* crop for the famous-character SKIN portraits (Thor, Patrick Jane style...):
+   per-hero tuned because each upload frames its face differently */
+const SKIN_PHOTO = { focusX: 0.5, focusY: 0.42, zoom: 0.62 };
+const SKIN_CROP = {
+  blaze: { focusX: 0.50, focusY: 0.40, zoom: 0.62 },   // Patrick Jane suit look
+  volt:  { focusX: 0.50, focusY: 0.44, zoom: 0.62 },   // Thor
+  frost: { focusX: 0.50, focusY: 0.44, zoom: 0.62 },   // Batman
+  shadow:{ focusX: 0.50, focusY: 0.25, zoom: 0.62 },   // shadow silhouette (face high)
+  gale:  { focusX: 0.68, focusY: 0.42, zoom: 0.55 },   // Doctor Doom (portrait, right side)
+  sol:   { focusX: 0.55, focusY: 0.32, zoom: 0.55 },   // Homelander (portrait)
+  terra: { focusX: 0.50, focusY: 0.30, zoom: 0.62 },   // Superman (portrait)
+  venom: { focusX: 0.45, focusY: 0.45, zoom: 0.75 } }; // Venom (wide shot)
+function skinCrop(id){ return SKIN_CROP[id] || SKIN_PHOTO; }
+/* resolves a hero's picture file (handles the double .png.jpeg names and
+   the "plaze"/"tera" spellings) or falls back to your player face.
+   Longest filename wins so new skins (blaze.png.jpeg) beat old photos. */
+function heroPhotoFile(id){
+  const m = (manifest.characters || []).slice().sort((a,b)=>b.length-a.length);
+  const prefs = id === "blaze" ? ["blaze.", "plaze."] :
+                id === "terra" ? ["terra.", "tera."] : [id + "."];
+  for (const pre of prefs){
+    const f = m.find(c=>c.toLowerCase().startsWith(pre));
+    if (f) return f;
+  }
+  return m.find(c=>c.toLowerCase().startsWith("player.")) || null;
+}
+const SndFiles = {};   // name -> media element
+/* YOUR sound files win: matching is flexible (shoot.wav.mp3, Shoot.mp3,
+   boss-roar.wav.mp3 ...) and .mp3/.ogg prefered over auto-generated .wav */
+function soundStem(s){
+  return s.toLowerCase().replace(/(\.[a-z0-9]+)+$/, "").replace(/[^a-z0-9]/g, "");
+}
+function getFile(name){
+  if (!manifest.sounds) return null;
+  const want = soundStem(name);
+  let best = null, bestPri = 99;
+  for (const f of manifest.sounds){
+    if (soundStem(f) !== want) continue;
+    const pri = /\.mp3$/i.test(f) ? 0 : /\.ogg$/i.test(f) ? 1 : /\.m4a$/i.test(f) ? 2 : 3;
+    if (pri < bestPri){ best = f; bestPri = pri; }
+  }
+  return best ? "assets/sounds/" + best : null;
+}
+function loadSounds(){
+  const names = ["shoot","hit","explosion","power","wave_start","boss_roar","death","victory","pickup","music"];
+  for (const n of names){
+    const src = getFile(n);
+    if (src){
+      const a = new Audio(src); a.preload = "auto"; SndFiles[n] = a;
+      if (n === "music"){ a.loop = true; a.volume = 0.35; }   // background track you drop in assets/sounds/
+    }
+  }
+}
+/* ---- your map photos -> real arena floors with 3D perspective ---- */
+const mapImgs = [];
+function loadMaps(){
+  for (const f of manifest.maps){
+    const img = new Image();
+    img.onload = ()=>{ mapImgs.push({ name: f.replace(/\.[^.]+$/, ""), img }); };
+    img.src = "assets/maps/" + f;
+  }
+}
+const floorCache = new Map();
+function mapIndexFor(w){ return mapImgs.length ? (w - 1 + mapImgs.length * 99) % mapImgs.length : -1; }
+function getFloor(wave){
+  const idx = mapIndexFor(wave);
+  if (idx < 0 || !mapImgs[idx]) return null;
+  const key = idx + "@" + W + "x" + H + "," + wave;
+  let c = floorCache.get(key);
+  if (c) return c;
+  if (!mapImgs[idx].img.complete || !mapImgs[idx].img.naturalWidth) return null;
+  c = buildFloor(mapImgs[idx].img, idx);
+  floorCache.set(key, c);
+  if (floorCache.size > 10) floorCache.delete(floorCache.keys().next().value);
+  return c;
+}
+function buildFloor(img, idx){
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  const a = H * HORIZON, b = H * 1.04;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  // per-map zoom: only the middle strip of the photo is shown, stretched
+  // across the full arena (map3 court gets wider AND taller)
+  const cr = MAP_CROP[idx] || { l:0, r:1, t:0, b:1 };
+  const cropL = cr.l*iw, cropW = (cr.r - cr.l)*iw;
+  const cropT = cr.t*ih, cropH = (cr.b - cr.t)*ih;
+  // our floor uses an eased t->y curve; invert it per screen row so the
+  // photo strips recreate exactly the same 3D plane the units walk on
+  const ease = t => t*t*(3-2*t)*0.9 + t*0.1;
+  const inv = ff => { ff = clamp(ff, 0.0005, 0.9995); let lo=0, hi=1;
+    for (let i=0;i<14;i++){ const mid=(lo+hi)/2; (ease(mid) < ff) ? lo=mid : hi=mid; } return (lo+hi)/2; };
+  for (let y = Math.max(0, Math.floor(a)); y < b-1; y++){
+    const t0 = inv((y-a)/(b-a)), t1 = inv((y+1-a)/(b-a));
+    const w0 = WORLD_W * (W/2100) * (0.80 + 0.42*t0);
+    const sh = Math.max(0.5, (t1-t0)*cropH);
+    const sy = clamp(cropT + t0*cropH, cropT, cropT + cropH - sh);
+    g.drawImage(img, cropL, sy, cropW, sh, W/2 - w0/2, y, w0, 1.2);
+  }
+  // dark arcane haze so fighters & spells stay readable + fade into horizon
+  g.fillStyle = "rgba(8,3,22,.42)";
+  g.fillRect(0, a, W, b-a);
+  const vg = g.createLinearGradient(0, a, 0, b);
+  vg.addColorStop(0, "rgba(5,2,16,.9)"); vg.addColorStop(0.35, "rgba(5,2,16,.18)"); vg.addColorStop(1, "rgba(5,2,16,.1)");
+  g.fillStyle = vg; g.fillRect(0, a, W, b-a);
+  return c;
+}
+
+let AC = null;
+function actx(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+function tone(f0, f1, dur, type, vol){
+  const a = actx(); if(!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, a.currentTime);
+  o.frequency.exponentialRampToValueAtTime(Math.max(20,f1), a.currentTime+dur);
+  g.gain.setValueAtTime(vol, a.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+dur);
+  o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime+dur+0.02);
+}
+function noise(dur, vol, drop){
+  const a = actx(); if(!a) return;
+  const n = a.sampleRate*dur, buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+  for(let i=0;i<n;i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/n, drop||1.4);
+  const s = a.createBufferSource(), g = a.createGain(); s.buffer = buf;
+  g.gain.value = vol; s.connect(g).connect(a.destination); s.start();
+}
+const Synth = {
+  shoot(){ tone(880, 240, 0.13, "square", 0.12); },
+  hit(){ noise(0.08, 0.16, 2); },
+  explosion(){ noise(0.5, 0.4, 1.2); tone(120, 30, 0.5, "sine", 0.3); },
+  power(){ [440,554,659,880].forEach((f,i)=>setTimeout(()=>tone(f, f*1.1, 0.12, "triangle", 0.2), i*70)); },
+  wave_start(){ tone(220, 440, 0.6, "sine", 0.22); },
+  boss_roar(){ tone(110, 40, 1.0, "sawtooth", 0.4); noise(0.8, 0.25, 1); },
+  death(){ tone(520, 90, 0.7, "sawtooth", 0.3); },
+  victory(){ [523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,f,0.15,"triangle",0.2), i*140)); },
+  pickup(){ tone(660, 1200, 0.12, "triangle", 0.2); },
+};
+function play(n){
+  if (SndFiles[n]){ const a = SndFiles[n].cloneNode(); a.volume = n==="explosion"||n==="boss_roar"?0.9:0.6; a.play().catch(()=>{}); }
+  else if (Synth[n]) try{ Synth[n](); }catch(e){}
+}
+
+/* -------- music loop (synth arpeggio, toggle M) -------- */
+let musicOn = true, musicStep = 0, musicTimer = 0;
+let tutorialT = 0, saidPowerReady = false, saidUltReady = false;   // tips + ready toasts
+const MUSIC = [110, 110, 165, 110, 98, 98, 147, 98, 131, 131, 196, 131, 87, 87, 131, 87];
+function musicTick(dt){
+  // your own music file (assets/sounds/music.mp3|wav|ogg) plays instead of the synth
+  const m = SndFiles.music;
+  if (m){
+    if (musicOn && state === "play"){ if (m.paused) m.play().catch(()=>{}); }
+    else if (!m.paused) m.pause();
+    return;
+  }
+  if (!musicOn || state !== "play") return;
+  musicTimer -= dt;
+  if (musicTimer <= 0){
+    musicTimer = 0.28;
+    const f = MUSIC[musicStep++ % MUSIC.length];
+    if (AC){ tone(f, f, 0.22, "sawtooth", 0.045); if(musicStep % 4===0) tone(f/2, f/2, 0.3, "sine", 0.07); }
+  }
+}
+
+/* ================= HEROES ================================ */
+const HEROES = {
+  blaze: {
+    name:"Blaze", cls:"Fire Mage · Patrick Jane", color:"#ff7a2f", color2:"#ffd23f",
+    desc:"Melts waves with fireballs. Punchy damage, medium speed.",
+    power:{ name:"FLAME NOVA", cd:9 }, hp:110, speed:340, rate:0.24, dmg:26, bulletSpeed:760, spread:0.06,
+    theme:"#ff5f2e", intro:["The arena will burn.","Step aside, sparks incoming."],
+    joy:["Toasty!","Burn!","Feel the heat!"], hurt:["I'm too hot to handle...","That stung!"],
+    wave:["New barbecue guests!","Fire check complete. Light them up.","Time to flame-grill some creeps."],
+    boss:["Big monster, bigger flames.","You want heat? I AM heat!"],
+    ult:{ name:"INFERNO CROWN", line:"KNEEL! THE FIRE KING HAS ARRIVED!" } },
+  volt: {
+    name:"Volt", cls:"Storm Striker · Thor", color:"#3fd8ff", color2:"#b6f3ff",
+    desc:"Fastest shooter in the arena. Rapid bolts, light armor.",
+    power:{ name:"CHAIN LIGHTNING", cd:7 }, hp:95, speed:410, rate:0.15, dmg:15, bulletSpeed:950, spread:0.1,
+    theme:"#19c8ff", intro:["Thunder never waits.","Lightning round... go."],
+    joy:["Shocking, isn't it?","Zapped!","10000 volts!"], hurt:["My circuits...","Agh, overcharged me!"],
+    wave:["Storm's rolling in.","Warning: High voltage zone.","Let's make some static."],
+    boss:["A big target for a big bolt.","Electricity vs. Ugly. I like my odds."],
+    ult:{ name:"STORM SOVEREIGN", line:"THE SKY ITSELF OBEYS ME!" } },
+  frost: {
+    name:"Frost", cls:"Ice Warden · Batman", color:"#9fd0ff", color2:"#dff3ff",
+    desc:"Tanky warden. Slow but her blizzard freezes entire packs.",
+    power:{ name:"BLIZZARD", cd:11 }, hp:135, speed:300, rate:0.3, dmg:22, bulletSpeed:700, spread:0.05,
+    theme:"#7db8ff", intro:["The cold is coming.","Winter has entered the arena."],
+    joy:["Chill out.","Ice cold.","Freeze!"], hurt:["I'm cracking up!","That was harsh..."],
+    wave:["Stay cool. We got this.","Ice to meet you, creeps.","Winter wave report incoming."],
+    boss:["You'll make a nice ice sculpture.","Big guy melts slow. I ain't worried."],
+    ult:{ name:"ABSOLUTE ZERO", line:"WINTER CLAIMS THIS ARENA!" } },
+  shadow: {
+    name:"Shadow", cls:"Dark Blade · The Shadow", color:"#b06cff", color2:"#e3c8ff",
+    desc:"Blinks through space, slices everything in her path.",
+    power:{ name:"SHADOW VORTEX", cd:8 }, hp:100, speed:370, rate:0.2, dmg:19, bulletSpeed:820, spread:0.07,
+    theme:"#a44dff", weapon:"blades", intro:["You won't even see me.","Shadows, assemble."],
+    joy:["Sliced and diced.","Too slow.","Blink and you miss it."], hurt:["Clever... very clever.","Ugh. I felt that."],
+    wave:["Let's vanish some monsters.","Darkness is my ally.","Time to haunt the arena."],
+    boss:["It can't catch what it can't see.","I've cut bigger shadows than you."],
+    ult:{ name:"ECLIPSE REQUIEM", line:"DARKNESS... IS MY THRONE!" } },
+  terra: {
+    name:"Terra", cls:"Earth Titan · Superman", color:"#c98b3a", color2:"#ffe0b0",
+    desc:"Heavy mountain warrior. Massive HP, crushing hammer slams.",
+    power:{ name:"EARTHQUAKE", cd:12 }, hp:160, speed:310, rate:0.33, dmg:28, bulletSpeed:620, spread:0.04,
+    theme:"#d98a3d", weapon:"hammer",
+    intro:["The ground answers to me.","I AM the foundation of this arena."],
+    joy:["Rock solid!","Demolished!","Bedrock beats everything."],
+    hurt:["Ore-ow!","My stones are cracking!"],
+    wave:["Let's shake things up.","The mountain walks with me.","Firm ground. Good."],
+    boss:["Big rock? I AM bigger rock.","Titan vs Mountain. HA!"],
+    ult:{ name:"TITAN'S VERDICT", line:"MOUNTAINS BOW BEFORE ME!" } },
+  gale: {
+    name:"Gale", cls:"Wind Dancer · Doctor Doom", color:"#5cffa0", color2:"#e0fff0",
+    desc:"Blinding speed, air fan shots. Her tornado eats entire waves.",
+    power:{ name:"TORNADO", cd:8 }, hp:90, speed:430, rate:0.18, dmg:13, bulletSpeed:880, spread:0.12,
+    theme:"#59ffa8", weapon:"fan",
+    intro:["The wind walks with me.","Feel the breeze of doom."],
+    joy:["Breezy!","Blown away!","Windbreakers: repaired."],
+    hurt:["Whoa, headwind!","That gust hurt..."],
+    wave:["Feel that? The wind just changed.","Cyclone season, baby.","Let's stir the pot."],
+    boss:["Heavy guy. Heavy wind wins.","I'll sweep him off his feet!"],
+    ult:{ name:"SKY DOMINION", line:"THE WINDS THEMSELVES CHOSE ME!" } },
+  sol: {
+    name:"Sol", cls:"Solar Knight · Homelander", color:"#ffb300", color2:"#fff4c2",
+    desc:"Holy sun blade. Balanced, bright, and her beam deletes rows.",
+    power:{ name:"SOLAR BEAM", cd:10 }, hp:120, speed:350, rate:0.27, dmg:30, bulletSpeed:820, spread:0.03,
+    theme:"#ffc21f", weapon:"sword",
+    intro:["Dawn breaks in the arena.","Light, serve me."],
+    joy:["Radiant!","Sun's out!","Purified!"],
+    hurt:["A shadow scorched me!","My dawn dims..."],
+    wave:["Shine time.","The horizon is ours.","Stand in the light."],
+    boss:["Even eclipses end.","My sword is a supernova."],
+    ult:{ name:"SOLAR ASCENDANT", line:"BATHE IN THE LIGHT OF A GOD!" } },
+  venom: {
+    name:"Venom", cls:"Toxikinetic · Venom", color:"#9dff3f", color2:"#d9ffb0",
+    desc:"Poison gauntlet fighter, leaves a fog that melts crowds.",
+    power:{ name:"TOXIC FOG", cd:9 }, hp:105, speed:340, rate:0.22, dmg:17, bulletSpeed:720, spread:0.08,
+    theme:"#8ae23c", weapon:"gauntlet",
+    intro:["One breath and you're soup.","Let me make this... unbreathable."],
+    joy:["Sick! Literally.","Dissolving nicely.","DELICIOUS toxicity."],
+    hurt:["My antidote...","I feel NOTHING anymore..."],
+    wave:["Careful where you breathe.","Fog forecast: deadly.","Time to infest."],
+    boss:["His lungs are SO big. Perfect.","Cough it up, big guy!"],
+    ult:{ name:"PLAGUE SOVEREIGN", line:"BREATHE... WHILE YOU STILL CAN!" } },
+};
+const ORACLE = {
+  talk:["The waves grow hungrier. Stay sharp.","Crystals hum... something big approaches.","Mother always said: keep moving.",
+       "Your magic is strong, child. The arena will test it.","Legend says the 5th wave brings a TITAN."],
+  broker:["Wait... mother???","Oracle?! You said this was a NICE arena!","You KNEW about the bosses?"],
+};
+
+/* conversation脚本 — hero banter pools rendered as speech bubbles */
+const ENEMY_TAUNT = ["You're a dead hero!","Can't catch me!","Weak magic!","Run, little mage!","The dark lord claims you!",
+  "Is that all your power?","My blade hungers!","GrrrAAAH!"];
+const BOSS_LINES = ["I AM THE ARENA'S END!","YOUR MAGIC IS NOTHING!","CRUSH... CRUSH... CRUSH!","FEED ME YOUR SOULS!","YOU DARE CHALLENGE A TITAN?"];
+
+/* ================= STATE ================================= */
+let state = "menu";        // menu | play | pause | over
+let hero = null, heroImg = null;
+let player, enemies, bullets, ebullets, pickups, particles, floaters, props;
+let bolts = [], blizzard = null, blink = null, rings = [];
+let beams = [], tornado = null, fog = null;
+/* follow-camera: world slides the opposite way, floor drifts slower (parallax) */
+const cam = { x:0, y:0, tx:0, ty:0 };
+let waveNum = 0, waveState = "calm", waveTimer = 0, spawnQueue = 0, spawnTimer = 0;
+let score = 0, kills = 0, streak = 0, shake = 0, flashTime = 0, flashColor = "#fff";
+let intermission = 0, banner = null, oracleChat = null, saidLowHP = false;
+let mouse = { x: innerWidth/2, y: innerHeight/2 }, firing = false;
+const keys = {};
+
+/* ================= INPUT ================================= */
+addEventListener("keydown", e=>{
+  keys[e.code] = true;
+  if (e.code === "KeyP" && (state==="play"||state==="pause")) togglePause();
+  if (e.code === "Escape" && (state==="play"||state==="pause"||state==="over")) returnToMenu();
+  if (e.code === "KeyM"){ musicOn = !musicOn; toast(musicOn?"♪ MUSIC ON":"♪ MUSIC OFF"); }
+  if (e.code === "KeyR" && state==="over"){ netMode ? returnToMenu() : startGame(); }
+  if (e.code === "Space") e.preventDefault();
+});
+addEventListener("keyup", e=>keys[e.code] = false);
+cvs.addEventListener("mousemove", e=>{ mouse.x = e.clientX; mouse.y = e.clientY; });
+cvs.addEventListener("mousedown", e=>{
+  // ✕ EXIT button (in-game, top-right) — click checks before shooting
+  if (exitBtnRect && state !== "menu" &&
+      e.clientX >= exitBtnRect.x && e.clientX <= exitBtnRect.x + exitBtnRect.w &&
+      e.clientY >= exitBtnRect.y && e.clientY <= exitBtnRect.y + exitBtnRect.h){
+    returnToMenu(); return;
+  }
+  firing = true; actx();
+});
+addEventListener("mouseup", ()=>firing = false);
+cvs.addEventListener("contextmenu", e=>e.preventDefault());
+
+function togglePause(){
+  state = state === "play" ? "pause" : "play";
+}
+
+/* ================= MULTIPLAYER (special code, relay over WiFi) =========== */
+let netMode = null;          // null | "host" | "join"
+let exitBtnRect = null;      // in-game ✕ exit button hitbox
+let guestHeroId = "blaze";   // hero the guest machine picked
+let netCode = "", joinId = "", lastJoinId = "";
+let remotePlayer = null, remoteSeen = 0, processedJoins = new Set();
+let netTimerPost = null, netTimerPoll = null;
+const heroPhotos = {};       // id -> {img} cache for remote hero faces
+
+function genCode(){
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = "";
+  for (let i=0;i<5;i++) s += A[Math.floor(Math.random()*A.length)];
+  return s;
+}
+async function relayPost(code, obj){ try{
+  const r = await fetch("/relay/" + code, { method:"POST", body: JSON.stringify(obj) });
+  return r.ok;
+}catch(e){ return false; } }
+async function relayGet(code){ try{
+  const r = await fetch("/relay/" + code + "?t=" + Date.now(), { cache: "no-store" });
+  return r.ok ? await r.json() : null;
+}catch(e){ return null; } }
+
+/* ---- GLOBAL LOBBY (friend on a DIFFERENT WiFi / internet play) ----
+   A free public broker carries our packets between any two networks.
+   Host publishes game snapshots to  arena-arena86/<CODE>/h,
+   guest publishes join/input/power/left to  <CODE>/g.            */
+let netChannel = "relay";        // "relay" (same WiFi) | "mqtt" (any WiFi via internet)
+let mqttClient = null, mqttTried = false;
+const MQTT_URLS = ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt"];
+const MQTT_SCOPE = "arcane-arena86/";
+
+function loadMqttLib(done){
+  const srcs = [ "https://unpkg.com/mqtt@5/dist/mqtt.min.js",
+                 "https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js" ];
+  const attempt = (i) => {
+    if (typeof mqtt !== "undefined"){ done(true); return; }
+    if (i >= srcs.length){ done(false); return; }
+    const s = document.createElement("script");
+    s.src = srcs[i]; s.onload = ()=> done(typeof mqtt !== "undefined");
+    s.onerror = ()=> attempt(i + 1);
+    document.head.appendChild(s);
+  };
+  attempt(0);
+}
+function mqttSend(suffix, obj){
+  if (!mqttClient || !mqttClient.connected) return;
+  try { mqttClient.publish(MQTT_SCOPE + netCode + suffix, JSON.stringify(obj)); } catch(e){}
+}
+/* guest packets travel on whichever channel actually connected */
+function netPostGuest(obj){
+  if (netChannel === "mqtt") mqttSend("/g", obj);
+  else { obj.id = obj.id || joinId; relayPost(netCode, obj); }
+}
+function mqttConnect(onStatus){
+  if (mqttTried){ if (onStatus) onStatus(!!(mqttClient && mqttClient.connected)); return; }
+  mqttTried = true;
+  loadMqttLib(ok => {
+    if (!ok){ toast("🌍 No internet — global lobby unavailable"); if (onStatus) onStatus(false); return; }
+    let idx = 0;
+    const tryUrl = () => {
+      if (idx >= MQTT_URLS.length){ toast("🌍 Global lobby unreachable"); if (onStatus) onStatus(false); return; }
+      const url = MQTT_URLS[idx++];
+      try {
+        mqttClient = mqtt.connect(url, {
+          clientId: "arcane_" + Math.random().toString(16).slice(2),
+          reconnectPeriod: 3000, keepalive: 20, connectTimeout: 8000 });
+      } catch(e){ tryUrl(); return; }
+      let announced = false;
+      mqttClient.on("connect", () => {
+        try {
+          mqttClient.subscribe(MQTT_SCOPE + netCode + "/g");   // messages for host...
+          mqttClient.subscribe(MQTT_SCOPE + netCode + "/h");   // ...and for guest
+        } catch(e){}
+        if (!announced){ announced = true; if (onStatus) onStatus(true); }
+      });
+      mqttClient.on("message", (topic, payload)=>{
+        if (!netMode) return;
+        let m = null; try { m = JSON.parse(payload.toString()); } catch(e){ return; }
+        if (!m || !m.type) return;
+        if (netMode === "host" && m.type !== "snap"){
+          hostHandle(m);
+        } else if (netMode === "join" && m.type === "snap"){
+          netChannel = "mqtt";
+          guestTakeSnapshot(m);
+        }
+      });
+    };
+    tryUrl();
+  });
+}
+
+function getHeroPhotoImg(id, cb){
+  if (!heroPhotos[id]) heroPhotos[id] = new Image();
+  const im = heroPhotos[id];
+  if (!im._loaders) im._loaders = [];
+  if (im.complete && im.naturalWidth) cb(im);
+  else {
+    im._loaders.push(cb);
+    if (!im._started){
+      im._started = true;
+      im.onload = ()=> (im._loaders||[]).forEach(f=>f(im));
+      const f = heroPhotoFile(id);
+      if (f) im.src = "assets/characters/" + f;
+    }
+  }
+}
+
+/* ---- HOST ---- */
+function hostGame(internet){
+  netMode = "host"; netCode = genCode();
+  netChannel = internet ? "mqtt" : "relay";
+  document.getElementById("npCode").textContent = netCode;
+  const st = document.getElementById("npHostStatus");
+  fetch("/myip").then(r=>r.json()).then(d=>{
+    document.getElementById("npAddr").textContent = "http://" + d.ip + ":" + PORT;
+  }).catch(()=>{});
+  st.textContent = "Room open! Your friend can join during the fight.";
+  netTimerPoll = setInterval(hostPoll, 110);
+  netTimerPost = setInterval(hostPost, 85);
+  if (internet) mqttConnect(ok => {
+    st.textContent = ok ? "🌍 GLOBAL LOBBY CONNECTED — works on ANY WiFi, anywhere!"
+                        : "Same-WiFi mode still works · global lobby unreachable";
+  });
+}
+/* one handler for packets from BOTH channels (relay dict or single broker message) */
+function hostHandle(m){
+  const d = m.type ? { [m.type]: m } : m;
+  if (d.join){
+    const jid = d.join.id;
+    if (!processedJoins.has(jid)){
+      processedJoins.add(jid);
+      if (!remotePlayer){
+        remotePlayer = makePlayer(HEROES[d.join.hero] || HEROES.volt);
+        remotePlayer.heroId = d.join.hero;
+        remotePlayer.hero = HEROES[d.join.hero] || HEROES.volt;
+        remotePlayer.role = "guest";
+        remotePlayer.isRemote = true;
+        remotePlayer.tag = "P2";
+        remoteSeen = Date.now();
+        showBanner("PLAYER 2 JOINED!", (remotePlayer.hero.name || "friend") + " entered the arena");
+        play("victory");
+        say(remotePlayer, pick(["I'm here!","Let's go!","Missed me?"]), 2.5);
+        oracleChat = { who:"ORACLE", text:"Two heroes?! The arena trembles...", t:3.5 };
+        spawnQueue += Math.ceil(spawnQueue * 0.6);   // more enemies for two heroes
+      } else processedJoins.add("__dup");
+    }
+  }
+  if (d.input && remotePlayer){
+    remoteSeen = Date.now();
+    remotePlayer.aim = { x: d.input.ax || remotePlayer.aim.x, y: d.input.ay || remotePlayer.y };
+    remotePlayer.mvx = clamp(d.input.dx, -1, 1); remotePlayer.mvy = clamp(d.input.dy, -1, 1);
+    if (d.input.fire) tryFire(remotePlayer, remotePlayer.hero, remotePlayer.aim);
+  }
+  if (d.power && remotePlayer){
+    usePowerNow(remotePlayer.heroId, remotePlayer, { x: d.power.ax, y: d.power.ay });
+  }
+  if (d.ult && remotePlayer){                 // friend's GREAT SUPER POWER
+    remoteSeen = Date.now();
+    startUltimate(remotePlayer);
+  }
+  if (d.left){
+    if (remotePlayer && d.left.id && !processedJoins.has("L"+d.left.id)){
+      processedJoins.add("L"+d.left.id);
+      say(remotePlayer, "bye!", 1.5);
+      remotePlayer = null;
+      toast("FRIEND LEFT THE ARENA");
+    }
+  }
+}
+async function hostPoll(){
+  if (netMode !== "host") return;
+  const d = await relayGet(netCode); if (!d) return;
+  hostHandle(d);
+}
+async function hostPost(){
+  if (netMode !== "host") return;
+  if (state === "play" || state === "over" || state === "pause"){
+    const s = buildSnap();
+    relayPost(netCode, { type:"snap", s });
+    if (mqttClient && mqttClient.connected) mqttSend("/h", { type:"snap", s });
+  }
+}
+
+/* ---- GUEST ---- */
+function guestTakeSnapshot(m){
+  if (state === "queued"){
+    state = "play"; clearNetUI();
+    tutorialT = 24; saidPowerReady = false; saidUltReady = false;   // guest sees the tips too
+    showBanner("CONNECTED!", netChannel === "mqtt" ? "online co-op — any WiFi works!" : "co-op arena with your friend");
+    play("victory");
+  }
+  lastInTs = Date.now();
+  guestApply(m.s);
+}
+async function joinGame(code){
+  netMode = "join"; netCode = (code || "").trim().toUpperCase();
+  joinId = genCode() + genCode().slice(0,2);
+  guestHeroId = selHero;  processedJoins = new Set();
+  remotePlayer = null; netChannel = "relay";
+  state = "queued"; // shows waiting panel in game loop
+  document.getElementById("menu").classList.add("hidden");
+  const st = document.getElementById("npJoinStatus");
+  relayPost(netCode, { type:"join", id: joinId, hero: guestHeroId, name: "Friend" });
+  st.textContent = "Searching for arena '" + netCode + "' ...";
+  let tries = 0;
+  const iv = setInterval(async ()=>{
+    if (netMode !== "join"){ clearInterval(iv); return; }
+    const d = await relayGet(netCode);
+    if (d && d.snap){
+      netChannel = "relay";
+      guestTakeSnapshot(d);
+    } else {
+      tries++;
+      if (tries === 8 && !mqttTried){          // not found on this WiFi -> try the GLOBAL lobby
+        st.textContent = "Not on this WiFi — joining the 🌍 GLOBAL internet lobby...";
+        mqttConnect(ok => {
+          if (ok){
+            st.textContent = "🌍 Global lobby connected — waiting for the host...";
+            mqttSend("/g", { type:"join", id: joinId, hero: guestHeroId, name: "Friend" });
+          }
+        });
+      }
+      if (tries > 30 && netChannel !== "mqtt"){
+        st.textContent = "No arena '" + netCode + "' found. Check the code & both players' internet.";
+      }
+    }
+    // keep the chosen channel alive with our inputs
+    netPostGuest({ type:"input", hero: guestHeroId, dx: guestDx, dy: guestDy,
+      ax: Math.round(aim.x), ay: Math.round(aim.y), fire: firing ? 1 : 0 });
+    if (Date.now() - (lastInTs||0) > 4000 && state === "play"){
+      state = "queued";
+      showBanner("LOST HOST...", "searching again");
+    }
+  }, 95);
+}
+let guestDx = 0, guestDy = 0, lastInTs = 0;
+function guestCollectInput(){
+  let dx = 0, dy = 0;
+  if (keys.KeyA || keys.ArrowLeft)  dx -= 1;
+  if (keys.KeyD || keys.ArrowRight) dx += 1;
+  if (keys.KeyW || keys.ArrowUp)    dy -= 1;
+  if (keys.KeyS || keys.ArrowDown)  dy += 1;
+  const l = Math.hypot(dx,dy) || 1;
+  guestDx = dx/l; guestDy = dy/l;
+}
+function clearNetUI(){
+  document.getElementById("netPanel").classList.add("hidden");
+}
+
+/* ---- world snapshot ---- */
+function packPlayer(pl, role){
+  const h = pl.hero || hero;
+  return { x: Math.round(pl.x), y: Math.round(pl.y), hp: Math.round(pl.hp), m: pl.maxHp,
+    d: pl.dir, pt: Math.round(pl.powerT), pd: h ? h.power.cd : 8, role, hi: pl.heroId || role,
+    bu: pl.bubble ? pl.bubble.text : "", bst: pl.boost > 0 ? 1 : 0,
+    ut: pl.ultT > 0 ? 1 : 0, sd: pl.shieldT > 0 ? 1 : 0, st2: pl.stunT > 0 ? 1 : 0 };
+}
+function buildSnap(){
+  const s = { w: waveNum, st: waveState, wt: waveTimer, sc: score, k: kills,
+    bn: banner ? { t: banner.text, s: banner.sub || "", sm: banner.small ? 1 : 0, tt: banner.t } : null,
+    p: [ packPlayer(player, "host") ],
+    e: enemies.map(e=>({ x: Math.round(e.x), y: Math.round(e.y), r: e.r, k: e.kind,
+        c: e.col, hp: Math.round(e.hp), m: Math.round(e.maxHp), sn: e.spawnT > 0 ? 1 : 0,
+        bu: e.bubble ? e.bubble.text : "" })),
+    b:  bullets.map(b=>({ x: Math.round(b.x), y: Math.round(b.y), c: b.col })),
+    eb: ebullets.map(b=>({ x: Math.round(b.x), y: Math.round(b.y), c: b.col })),
+    pk: pickups.map(k=>({ x: Math.round(k.x), y: Math.round(k.y), k: k.kind })),
+    fx: { rz: rings.map(r=>({ x: Math.round(r.x), y: Math.round(r.y), r: Math.round(r.r), t: r.t, c: r.col })),
+          vz: blizzard ? { x: Math.round(blizzard.x), y: Math.round(blizzard.y), r: blizzard.r, t: blizzard.t } : null,
+          tg: tornado ? { x: Math.round(tornado.x), y: Math.round(tornado.y), t: tornado.t, sp: tornado.spin } : null,
+          fg: fog ? { x: Math.round(fog.x), y: Math.round(fog.y), r: fog.r, t: fog.t } : null,
+          bm: beams.map(b=>({ x: Math.round(b.x), y: Math.round(b.y), a: b.ang, t: b.t })),
+          bt: bolts.map(b=>({ x1: b.x1, y1: b.y1, x2: b.x2, y2: b.y2, t: b.t, c: b.col })) } };
+  if (remotePlayer) s.p.push(packPlayer(remotePlayer, "guest"));
+  return s;
+}
+function enemyStub(kind, x, y){
+  const base = { crawler:{r:18,col:"#ff4d6d"}, shooter:{r:19,col:"#c05cff"},
+                 tank:{r:30,col:"#4dd06a"}, boss:{r:56,col:"#ff2b2b"} }[kind] || {r:20,col:"#ff4d6d"};
+  return { ...base, kind, x, y, bubble: null, hurtT: 0, sayT: 99, dead: false, spawnT: 0, dir: 1,
+    slow: 0, maxHp: 1, hp: 1 };
+}
+function guestApply(s){
+  waveNum = s.w; waveState = s.st; waveTimer = s.wt; score = s.sc; kills = s.k;
+  banner = s.bn ? { text: s.bn.t, sub: s.bn.s, small: !!s.bn.sm, t: Math.max(0.3, s.bn.tt) } : banner;
+  const me = player && player.role === "guest" ? player : null;
+  let myP = null, other = null;
+  for (const p of s.p){
+    const full = { x: p.x, y: p.y, r: 22, hp: p.hp, maxHp: p.m, dir: p.d, bubble: p.bu ? { text: p.bu, t: 2.4 } : null,
+      powerT: p.pt, boost: p.bst ? 9 : 0, heroId: p.hi, role: p.role, fireT: 0, inv: 0, bob: (me && me.bob) || 0,
+      ultT: p.ut ? 1.2 : 0, ultCD: (me && me.ultCD) || 0, shieldT: p.sd ? 1.2 : 0, stunT: p.st2 ? 0.35 : 0,
+      ultHintT: 0 };
+    const h = HEROES[p.hi] || HEROES.blaze;
+    if (h) full.hero = h;
+    if (p.role === "guest") myP = full; else other = full;
+  }
+  if (me && myP){ // position smoothing between snapshots
+    myP.x = myP.x*0.7 + me.x*0.3; myP.y = myP.y*0.7 + me.y*0.3; myP.bob = me.bob;
+  }
+  player = myP || player || makePlayer(HEROES[guestHeroId]);
+  hero = player.hero;
+  if (!heroImg) getHeroPhotoImg(player.heroId, im=>{ heroImg = im; });
+  player.photoImg = heroImg;
+  player.tag = "YOU (P2)";
+  remotePlayerLocal = other || null;
+  if (remotePlayerLocal){
+    remotePlayerLocal.photoImg = null;
+    remotePlayerLocal.tag = "P1 (HOST)";
+    getHeroPhotoImg(remotePlayerLocal.heroId, im=>{ remotePlayerLocal.photoImg = im; });
+  }
+  enemies = s.e.map(o=>{ const e = enemyStub(o.k, o.x, o.y);
+    e.r = o.r; e.col = o.c; e.hp = o.hp; e.maxHp = o.m; e.spawnT = o.sn ? 0.5 : 0;
+    e.bubble = o.bu ? { text: o.bu, t: 2.4 } : null; return e; });
+  bullets = s.b.map(o=>({ x:o.x, y:o.y, r:6, col:o.c, vx:0, vy:0, life:1 }));
+  ebullets = s.eb.map(o=>({ x:o.x, y:o.y, r:8, col:o.c, vx:0, vy:0, life:1 }));
+  pickups = s.pk.map(o=>({ x:o.x, y:o.y, kind:o.k, t:1, life: 9 }));
+  rings = s.fx.rz || [];
+  blizzard = s.fx.vz; tornado = s.fx.tg; fog = s.fx.fg;
+  beams = s.fx.bm || []; bolts = s.fx.bt || [];
+  if (!props.length) buildProps();
+}
+function heroIdOfPlayer(pl){ return pl.heroId || "blaze"; }
+let remotePlayerLocal = null;   // on guest machine: rendered copy of host's hero
+
+/* ================= SPEECH BUBBLES ======================== */
+function say(ent, text, dur=2.4){
+  ent.bubble = { text, t: dur };
+}
+function toast(text){ banner = { text, t: 2.2, small:true }; }
+function showBanner(text, sub){ banner = { text, sub, t: 2.6 }; }
+
+function updateBubble(ent, dt){
+  if (ent.bubble){ ent.bubble.t -= dt; if (ent.bubble.t <= 0) ent.bubble = null; }
+}
+function drawBubble(ent){
+  const b = ent.bubble; if(!b) return;
+  const p = project(ent.x, ent.y);
+  const s = p.s, size = Math.max(10, 13*s);
+  ctx.font = `700 ${size}px "Segoe UI"`;
+  const w = ctx.measureText(b.text).width + size*1.2;
+  const h = size*1.9;
+  const bx = p.x - w/2, by = p.y - 62*s;
+  ctx.globalAlpha = clamp(b.t, 0, 1);
+  ctx.fillStyle = "rgba(8,4,20,.85)";
+  roundRect(bx, by - h, w, h, h/2); ctx.fill();
+  ctx.strokeStyle = ent.isEnemy ? "rgba(255,90,90,.8)" : "rgba(0,229,255,.8)";
+  ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = ent.isEnemy ? "#ffb3b3" : "#dffcff";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(b.text, bx + w/2, by - h/2);
+  // tail
+  ctx.beginPath(); ctx.moveTo(p.x-5*s, by); ctx.lineTo(p.x, by+7*s); ctx.lineTo(p.x+5*s, by); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+/* ================= GAME SETUP ============================ */
+function makePlayer(h){
+  return { x: WORLD_W/2, y: WORLD_H*0.75, r: 22, hp: h.hp, maxHp: h.hp,
+    hero: h, fireT: 0, powerT: 0, bob: 0, bubble:null, dir: 1, inv: 1.2, boost: 0,
+    ultT: 0, ultCD: 0, shieldT: 0, stunT: 0, ultHintT: 0 };
+}
+function startGame(){
+  hero = HEROES[selHero];
+  const img = new Image();
+  img.onload = ()=>{ heroImg = img; };
+  img.onerror = ()=>{ heroImg = null; };
+  const fP = heroPhotoFile(selHero);
+  if (fP){ img.src = "assets/characters/" + fP; } else heroImg = null;
+
+  player = makePlayer(hero);
+  player.heroId = selHero;
+  player.role = "host";
+  player.tag = "P1";
+  enemies = []; bullets = []; ebullets = []; pickups = []; particles = []; floaters = [];
+  props = []; waveNum = 0; score = 0; kills = 0; streak = 0; shake = 0;
+  oracleChat = null; saidLowHP = false;
+  tutorialT = 24; saidPowerReady = false; saidUltReady = false;   // fresh match -> show how-to-play tips again
+  waveNum = 0; score = 0; kills = 0; streak = 0; shake = 0;
+  buildProps();
+  document.getElementById("menu").classList.add("hidden");
+  state = "play"; waveState = "calm"; waveTimer = 1.2; intermission = 0;
+  say(player, hero.intro[Math.floor(Math.random()*hero.intro.length)], 2.6);
+}
+
+function pillarLayout(){}  /* (kept for safety; replaced by buildProps) */
+
+/* ---- map props: NONE — your map photo is the scenery ---- */
+/* the drawn houses/crystals/nets were removed: they became obstacles in
+   the middle of your maps. The only "wall" is the blue line in the photo. */
+const PROPS = new Set(["net","pole","crystal","house"]);
+function buildProps(){
+  props = [];
+}
+
+/* ================= WAVES ================================= */
+function startWave(){
+  waveNum++;
+  waveState = "spawning";
+  saidLowHP = false;
+  const isBoss = waveNum % 5 === 0;
+  showBanner(isBoss ? "☠ BOSS WAVE " + waveNum + " ☠" : "WAVE " + waveNum,
+             isBoss ? "A TITAN AWAKENS" : waveNum%2 ? "Hold the arena!" : "They keep coming...");
+  if (mapImgs.length) toast("🗺 NEW MAP: " + mapImgs[mapIndexFor(waveNum)].name.toUpperCase());
+  buildProps();
+  play(isBoss ? "boss_roar" : "wave_start");
+  shake = isBoss ? 14 : 6;
+
+  if (isBoss){
+    spawnQueue = 1; spawnTimer = 1.0; bossIncoming = true;
+    if (bossIncoming){ // pre-boss banter
+      say(player, hero.boss[Math.floor(Math.random()*hero.boss.length)], 3);
+      oracleChat = { who:"ORACLE", text: pick(["It's a Titan! Attack the glowing core!","A Titan wakes. Aim for the eyes... and pray.","This one eldest of the dark. Dance, hero!"]), t: 4.5 };
+    }
+  } else {
+    bossIncoming = false;
+    if (waveNum > 1){ say(player, pick(hero.wave), 2.6); if (Math.random()<0.4) oracleChat = { who:"ORACLE", text: pick(ORACLE.talk), t: 4 }; }
+    spawnQueue = Math.floor(4 + waveNum*2.3 + waveNum*waveNum*0.05);
+    spawnTimer = 0.6;
+  }
+  intermission = 0;
+}
+let bossIncoming = false;
+const pick = a => a[Math.floor(Math.random()*a.length)];
+
+function spawnEnemy(){
+  const side = Math.floor(rand(0,4));
+  let x, y;
+  if (side===0){ x = rand(0,WORLD_W); y = WORLD_H*0.06; }
+  else if (side===1){ x = rand(0,WORLD_W); y = WORLD_H*0.94; }
+  else if (side===2){ x = WORLD_W*rand(-0.02,1.02); y = rand(WORLD_H*0.2,WORLD_H*0.95); }
+  else { x = WORLD_W*rand(-0.02,1.02); y = rand(WORLD_H*0.2,WORLD_H*0.95); }
+  const bS = mapBorder();
+  x = clamp(x, bS.x0 + 40, bS.x1 - 40);
+  y = clamp(y, bS.y0 + 45, bS.y1 - 45);
+
+  let type = "crawler";
+  const isBoss = waveNum % 5 === 0;
+  if (bossIncoming){ type = (spawnQueue===1) ? "boss" : (Math.random()<0.5?"crawler":"shooter"); }
+  else if (waveNum>=2 && Math.random()<0.28) type = "shooter";
+  else if (waveNum>=3 && Math.random()<0.2) type = "tank";
+
+  const scale = 1 + waveNum*0.09;
+  const e = { x, y, r: 20, bubble:null, hurtT:0, sayT: rand(1,6), dead:false, spawnT: 0.6, dir:1, ax:0, ay:0 };
+  if (type === "crawler"){
+    Object.assign(e, { kind:"crawler", hp: 30*scale, maxHp: 30*scale, speed: rand(120,175)*Math.min(1+waveNum*0.03,1.6), r:18, col:"#ff4d6d", dmg:12, spawnT:0.5 });
+  } else if (type === "shooter"){
+    Object.assign(e, { kind:"shooter", hp: 38*scale, maxHp: 38*scale, speed: rand(80,120), r:19, col:"#c05cff", dmg:14, fireT: rand(1,2.5), spawnT:0.5 });
+  } else if (type === "tank"){
+    Object.assign(e, { kind:"tank", hp: 120*scale, maxHp: 120*scale, speed: rand(45,65), r:30, col:"#4dd06a", dmg:22, spawnT:0.7 });
+  } else { // BOSS
+    Object.assign(e, { kind:"boss", hp: 900 + waveNum*180, maxHp: 900 + waveNum*180, speed: 85, r:56, col:"#ff2b2b", dmg:34,
+      fireT: 2, chargeT: 5, phase: 0, spawnT: 1.2 });
+    say(e, pick(BOSS_LINES), 3.5);
+  }
+  playHitSpawn(e);
+  resolveObstacles(e);
+  enemies.push(e);
+}
+function playHitSpawn(e){}
+function maybeTaunt(e, dt){
+  e.sayT -= dt;
+  if (e.sayT <= 0 && !e.isPlayer){ e.sayT = rand(6,14);
+    if (Math.random() < 0.65) say(e, pick(ENEMY_TAUNT), 1.8); }
+}
+
+/* ================= UPDATE =============================== */
+function update(dt){
+  musicTick(dt);
+  if (tutorialT > 0) tutorialT -= dt;
+  if (banner) { banner.t -= dt; if (banner.t<=0) banner = null; }
+  if (oracleChat){ oracleChat.t -= dt; if (oracleChat.t<=0) oracleChat = null; }
+  if (flashTime > 0) flashTime -= dt;
+  shake *= Math.pow(0.02, dt);
+
+  if (state !== "play") return;
+
+  /* guest machine: relay inputs, skip simulation (the host simulates for both) */
+  if (netMode === "join"){
+    guestCollectInput();
+    aim = getAim();
+    if (player){
+      // local timers survive between snapshots
+      player.ultT = Math.max(0, player.ultT - dt); player.ultCD = Math.max(0, player.ultCD - dt);
+      player.shieldT = Math.max(0, player.shieldT - dt); player.stunT = Math.max(0, player.stunT - dt);
+      // ★ CHARACTER SKILL: usable any time, recharges every 4 seconds
+      if (keys.KeyE && player.stunT <= 0 && player.ultT <= 0 && player.ultCD <= 0 && player.hp > 0){
+        player.ultT = ULT_DUR; player.ultCD = ULT_CD; player.shieldT = ULT_SHIELD;
+        netPostGuest({ type:"ult", id: joinId });   // host applies the real effect
+      }
+      // local movement for zero-latency feel (host stays authoritative)
+      if (player.stunT <= 0 && (guestDx || guestDy)){
+        const gl = Math.hypot(guestDx, guestDy) || 1;
+        player.x += guestDx/gl * player.hero.speed * dt;
+        player.y += guestDy/gl * player.hero.speed * dt;
+        if (guestDx) player.dir = guestDx > 0 ? 1 : -1;
+        const B = mapBorder();
+        player.x = clamp(player.x, B.x0 + player.r + BORDER_GAP, B.x1 - player.r - BORDER_GAP);
+        player.y = clamp(player.y, B.y0 + player.r + BORDER_GAP, B.y1 - player.r - BORDER_GAP);
+        resolveObstacles(player);
+      }
+    }
+    if (keys.Space && player && player.powerT <= 0 && player.stunT <= 0){
+      player.powerT = (player.hero && player.hero.power.cd) || 6;
+      netPostGuest({ type:"power", id: joinId, ax: Math.round(aim.x), ay: Math.round(aim.y) });
+    }
+    cam.tx = clamp(((player.x/WORLD_W) - 0.5) * 130 + (aim.x - player.x)/WORLD_W * 100, -130, 130);
+    cam.ty = clamp(((player.y/WORLD_H) - 0.55) * 70 + (aim.y - player.y)/WORLD_H * 50, -45, 80);
+    cam.x += (cam.tx - cam.x)*Math.min(1, dt*4);
+    cam.y += (cam.ty - cam.y)*Math.min(1, dt*4);
+    player.bob += dt*9;
+    return;
+  }
+
+  if (waveState === "calm"){ waveTimer -= dt; if (waveTimer <= 0) startWave(); }
+  else if (waveState === "spawning"){
+    spawnTimer -= dt;
+    if (spawnQueue > 0 && spawnTimer <= 0){
+      const burst = bossIncoming ? Math.min(spawnQueue, 3) : Math.min(spawnQueue, 1 + (Math.random()<0.4?1:0));
+      for (let i=0;i<burst;i++){ spawnEnemy(); spawnQueue--; }
+      spawnTimer = bossIncoming ? 2.2 : rand(0.5,1.1);
+    }
+    if (spawnQueue <= 0 && enemies.length === 0){
+      waveState = "cleared"; waveTimer = 4.2;
+      score += waveNum*60; play("victory");
+      showBanner("WAVE " + waveNum + " CLEARED!", "+" + (waveNum*60) + " pts");
+      say(player, pick(hero.joy), 2);
+      if (Math.random()<0.55) oracleChat = { who:"ORACLE", text: pick(ORACLE.broker.concat(ORACLE.talk)), t: 4.5 };
+      for (let i=0;i<2;i++) pickups.push(newPickup("heart"));
+      if (Math.random()<0.8) pickups.push(newPickup("star"));
+      // co-op: a fallen friend rises again between waves
+      if (netMode === "host" && remotePlayer && remotePlayer.hp <= 0){
+        remotePlayer.hp = remotePlayer.maxHp;
+        say(remotePlayer, "back in the fight!", 2);
+        toast("P2 REVIVED!");
+      }
+    }
+  } else if (waveState === "cleared"){
+    waveTimer -= dt; if (waveTimer <= 0) startWave();
+  }
+
+  /* ---- player movement ---- */
+  const p = player, h = hero;
+  let dx = 0, dy = 0;
+  if (keys.KeyA || keys.ArrowLeft)  dx -= 1;
+  if (keys.KeyD || keys.ArrowRight) dx += 1;
+  if (keys.KeyW || keys.ArrowUp)    dy -= 1;
+  if (keys.KeyS || keys.ArrowDown)  dy += 1;
+  if (p.stunT > 0){
+    p.stunT -= dt;    // frozen: the other hero is playing their GREAT SUPER POWER
+  } else if (dx || dy){
+    const l = Math.hypot(dx,dy); dx/=l; dy/=l;
+    p.x += dx * h.speed * dt; p.y += dy * h.speed * dt;
+    if (dx) p.dir = dx > 0 ? 1 : -1;
+    // footstep dust
+    if (Math.random() < dt*14) spawnParticles(p.x, p.y+14, 1, "#7b2ff7", 30, 0.4);
+  }
+  const B = mapBorder();
+  p.x = clamp(p.x, B.x0 + p.r + BORDER_GAP, B.x1 - p.r - BORDER_GAP);
+  p.y = clamp(p.y, B.y0 + p.r + BORDER_GAP, B.y1 - p.r - BORDER_GAP);
+  resolveObstacles(p);
+  p.bob += dt * 9; p.inv = Math.max(0, p.inv - dt); p.boost = Math.max(0, p.boost - dt);
+  p.fireT -= dt; p.powerT = Math.max(0, p.powerT - dt);
+  p.ultT = Math.max(0, p.ultT - dt); p.ultCD = Math.max(0, p.ultCD - dt);
+  p.shieldT = Math.max(0, p.shieldT - dt); p.stunT = Math.max(0, p.stunT - dt);
+  p.ultHintT = Math.max(0, p.ultHintT - dt);
+  updateBubble(p, dt);
+  aim = getAim();
+  if (state==="play" && keys.Space && p.stunT <= 0) usePower();
+  if (state==="play" && keys.KeyE) tryUltimate(player);
+
+  /* ---- player shooting ---- */
+  if (p.stunT <= 0) tryFire(player, hero, aim);
+
+  /* ---- remote hero: timers, stun, real movement (host simulates the friend) ---- */
+  if (netMode === "host" && remotePlayer){
+    const rp = remotePlayer;
+    rp.fireT -= dt; rp.powerT = Math.max(0, rp.powerT - dt);
+    rp.inv = Math.max(0, rp.inv - dt); rp.boost = Math.max(0, rp.boost - dt);
+    rp.ultT = Math.max(0, rp.ultT - dt); rp.ultCD = Math.max(0, rp.ultCD - dt);
+    rp.shieldT = Math.max(0, rp.shieldT - dt); rp.stunT = Math.max(0, rp.stunT - dt);
+    if (rp.stunT <= 0 && (rp.mvx || rp.mvy)){        // guest's stick input drives the friend
+      const l = Math.hypot(rp.mvx, rp.mvy) || 1;
+      rp.x += rp.mvx/l * rp.hero.speed * dt; rp.y += rp.mvy/l * rp.hero.speed * dt;
+      if (rp.mvx) rp.dir = rp.mvx > 0 ? 1 : -1;
+      const B2 = mapBorder();
+      rp.x = clamp(rp.x, B2.x0 + rp.r + BORDER_GAP, B2.x1 - rp.r - BORDER_GAP);
+      rp.y = clamp(rp.y, B2.y0 + rp.r + BORDER_GAP, B2.y1 - rp.r - BORDER_GAP);
+      resolveObstacles(rp);
+    }
+    updateBubble(rp, dt);
+  }
+
+  /* ---- enemies ---- */
+  for (const e of enemies){
+    e.spawnT = Math.max(0, e.spawnT - dt);
+    if (e.spawnT > 0) continue;
+    if (e.stunT > 0){ e.stunT -= dt; e.hurtT = Math.max(0, e.hurtT - dt); continue; }  // paused by a GREAT SUPER POWER
+    updateBubble(e, dt); maybeTaunt(e, dt);
+    e.hurtT = Math.max(0, e.hurtT - dt);
+
+    // co-op: enemies charge the nearest living hero
+    const tgt = targetOf(e);
+    const d = dist(e, tgt);
+    const ang = Math.atan2(tgt.y - e.y, tgt.x - e.x);
+
+    if (e.slow > 0) e.slow -= dt;    const sf = e.slow > 0 ? 0.4 : 1;
+
+    if (e.kind === "crawler"){
+      e.x += Math.cos(ang) * e.speed * sf * dt; e.y += Math.sin(ang) * e.speed * sf * dt;
+    } else if (e.kind === "shooter"){
+      const keep = 380;
+      if (d > keep + 60) { e.x += Math.cos(ang)*e.speed*sf*dt; e.y += Math.sin(ang)*e.speed*sf*dt; }
+      else if (d < keep - 60){ e.x -= Math.cos(ang)*e.speed*sf*dt; e.y -= Math.sin(ang)*e.speed*sf*dt; }
+      e.fireT -= dt;
+      if (e.fireT <= 0){ e.fireT = rand(1.6, 2.6);
+        const ang0 = Math.atan2(tgt.y - e.y, tgt.x - e.x);
+        fireEbullet(e.x, e.y-10, Math.cos(ang0)*420, Math.sin(ang0)*420, 8, e.dmg, "#d07bff", 3);
+      }
+    } else if (e.kind === "tank"){
+      e.x += Math.cos(ang) * e.speed * sf * dt; e.y += Math.sin(ang) * e.speed * sf * dt;
+    } else if (e.kind === "boss"){
+      e.x += Math.cos(ang) * e.speed * sf * dt; e.y += Math.sin(ang) * e.speed * sf * dt;
+      e.fireT -= dt;
+      if (e.fireT <= 0){ e.fireT = rand(2.6, 3.8);
+        // radial burst
+        const n = 10;
+        for (let i=0;i<n;i++){ const a = i/n*TAU + rand(-0.1,0.1);
+          fireEbullet(e.x, e.y, Math.cos(a)*300, Math.sin(a)*300, 10, 16, "#ff5555", 4); }
+        play("explosion"); shake = Math.max(shake, 6);
+      }
+      e.chargeT -= dt;
+      if (e.chargeT <= 0){ e.chargeT = rand(6,9);
+        say(e, pick(BOSS_LINES), 1.6);
+        e.chargeSpeed = 2.4; // brief speed boost
+      }
+      if (e.chargeSpeed > 0){ e.chargeSpeed -= dt; e.x += Math.cos(ang)*e.speed*1.6*dt; e.y += Math.sin(ang)*e.speed*1.6*dt; }
+    }
+    const B = mapBorder();
+ e.x = clamp(e.x, B.x0 + e.r + BORDER_GAP, B.x1 - e.r - BORDER_GAP);
+ e.y = clamp(e.y, B.y0 + e.r + BORDER_GAP, B.y1 - e.r - BORDER_GAP);
+    resolveObstacles(e);
+
+    // touch damage
+    if (d < e.r + tgt.r && tgt.inv <= 0){
+      damageEnt(tgt, e.dmg);
+      tgt.inv = 0.7;
+      const push = 60; tgt.x -= Math.cos(ang)*push*dt*3; tgt.y -= Math.sin(ang)*push*dt*3;
+    }
+    if (e.hitFlashBody){
+      e.x += rand(-2,2); // jitter handled by flash below
+      e.hitFlashBody = false;
+    }
+  }
+
+  /* ---- bullets ---- */
+  for (const b of bullets){
+    b.x += b.vx*dt; b.y += b.vy*dt; b.life -= dt;
+    if (Math.random() < dt*30) spawnParticles(b.x, b.y, 1, b.col, 26, 0.25);
+    if (b.startInside)
+    // solid props eat bullets (unless born inside that cover)
+    for (const o of props){
+      if (!o.solid) continue;
+      const si = b.startInside.indexOf(o);
+      const d = dist(b, o);
+      if (si >= 0){ if (d > o.r + 2) b.startInside.splice(si, 1); continue; }
+      if (d < o.r + b.r){ b.life = 0; spawnParticles(b.x, b.y, 3, "#ffd9a0", 90, 0.25); break; }
+    }
+    for (const e of enemies){
+      if (e.spawnT > 0) continue;
+      if (dist(b, e) < e.r + b.r){
+        hurtEnemy(e, b.dmg, b.burn); b.life = 0; break;
+      }
+    }
+  }
+  bullets = bullets.filter(b=>b.life>0);
+  for (const b of ebullets){
+    b.x += b.vx*dt; b.y += b.vy*dt; b.life -= dt;
+    for (const o of props){
+      if (!o.solid) continue;
+      const si = b.startInside.indexOf(o);
+      const d = dist(b, o);
+      if (si >= 0){ if (d > o.r + 2) b.startInside.splice(si, 1); continue; }
+      if (d < o.r + b.r){ b.life = 0; spawnParticles(b.x, b.y, 2, "#ff8888", 70, 0.2); break; }
+    }
+    const tgt = targetOf(b);
+    if (dist(b, tgt) < tgt.r + b.r && tgt.inv <= 0){ damageEnt(tgt, b.dmg); b.life = 0; }
+  }
+  ebullets = ebullets.filter(b=>b.life>0);
+
+  /* ---- pickups ---- */
+  for (const k of pickups){
+    k.t += dt;
+    // co-op: whoever gets there first grabs it
+    const taker = (netMode === "host" && remotePlayer && remotePlayer.hp > 0 &&
+                   dist(k, remotePlayer) < 40 && dist(k, p) >= 40) ? remotePlayer : p;
+    if (dist(k, taker) < 40){
+      if (k.kind === "heart"){ taker.hp = Math.min(taker.maxHp, taker.hp + 30); floatText(taker.x, taker.y-50, "+30 ♥", "#7dff9c"); saidLowHP = false;
+        if (taker === remotePlayer) say(taker, "thanks for the heal!", 1.6); }
+      else { taker.boost = 7; floatText(taker.x, taker.y-50, "DOUBLE DAMAGE!", "#ffd23f"); }
+      play("pickup");
+      k.life = 0;
+    }
+    k.life -= dt;
+  }
+  pickups = pickups.filter(k=>k.life > 0);
+
+  /* ---- blizzard damage field (Frost) ---- */
+  if (blizzard){
+    blizzard.t -= dt;
+    for (const e of enemies){
+      if (dist(e, blizzard) < blizzard.r){
+        e.slow = Math.max(e.slow || 0, 1);
+        e.hp -= 30*dt; e.hurtT = 0.06;
+        if (Math.random() < dt*6) floatText(e.x, e.y-40, "❄", "#bfe8ff");
+        if (e.hp <= 0 && !e.dead) hurtEnemy(e, 1);
+      }
+    }
+    if (blizzard.t <= 0) blizzard = null;
+  }
+
+  /* ---- new power fields: tornado / toxic fog / solar beam ---- */
+  if (tornado){
+    tornado.t -= dt; tornado.spin += dt*10;
+    for (const e of enemies){
+      if (dist(e, tornado) < tornado.r){
+        const a = Math.atan2(tornado.y - e.y, tornado.x - e.x);
+        e.x += Math.cos(a)*170*dt; e.y += Math.sin(a)*110*dt;
+        e.slow = Math.max(e.slow||0, 0.4);
+        e.hp -= 55*dt; e.hurtT = 0.06;
+        if (e.hp <= 0 && !e.dead) hurtEnemy(e, 1);
+      }
+    }
+    if (Math.random() < dt*30) spawnParticles(tornado.x + rand(-70,70), tornado.y + rand(-40,40), 1, "#bfffe0", 60, 0.4);
+    if (tornado.t <= 0) tornado = null;
+  }
+  if (fog){
+    fog.t -= dt;
+    for (const e of enemies){
+      if (dist(e, fog) < fog.r){
+        e.slow = Math.max(e.slow||0, 0.8);
+        e.hp -= 48*dt; e.hurtT = 0.05;
+        if (Math.random() < dt*4) floatText(e.x, e.y-40, "☠", "#9dff3f");
+        if (e.hp <= 0 && !e.dead) hurtEnemy(e, 1);
+      }
+    }
+    if (fog.t <= 0) fog = null;
+  }
+  for (const bm of beams) bm.t -= dt;
+  beams = beams.filter(b=>b.t>0);
+
+  /* ---- particles / floaters ---- */
+  for (const pt of particles){ pt.x += pt.vx*dt; pt.y += pt.vy*dt; pt.vy += pt.g*dt; pt.life -= dt; }
+  particles = particles.filter(pt=>pt.life > 0);
+  for (const f of floaters){ f.y -= 46*dt; f.life -= dt; }
+  floaters = floaters.filter(f=>f.life > 0);
+
+  /* ---- deaths ---- */
+  enemies = enemies.filter(e=>!e.dead);
+
+  /* ---- low HP warning ---- */
+  if (p.hp < p.maxHp*0.3 && !saidLowHP){ saidLowHP = true; say(p, pick(hero.hurt), 2.2);
+    oracleChat = { who:"ORACLE", text:"You're fading, child! Collect the hearts!", t:3 }; }
+
+  /* ---- follow camera drift (player-lead + aim bias, smooth ease) ---- */
+  cam.tx = clamp(((p.x/WORLD_W) - 0.5) * 130 + (aim.x - p.x)/WORLD_W * 100, -130, 130);
+  cam.ty = clamp(((p.y/WORLD_H) - 0.55) * 70 + (aim.y - p.y)/WORLD_H * 50, -45, 80);
+  const ck = Math.min(1, dt*3.2);
+  cam.x += (cam.tx - cam.x)*ck;
+  cam.y += (cam.ty - cam.y)*ck;
+}
+
+let aim = { x: WORLD_W/2, y: WORLD_H/2 };
+function getAim(){
+  const wy = unprojectY(mouse.y + cam.y * 0.75);
+  const t = clamp(wy / WORLD_H, 0, 1);
+  return { x: WORLD_W/2 + (mouse.x + cam.x - W/2)/((W/2100)*(0.80 + 0.42*t)), y: wy };
+}
+/* shared firing so host & friend both shoot (entity-based) */
+function tryFire(ent, h, aimPt){
+  if (!ent || !h || ent.fireT > 0) return;
+  ent.fireT = h.rate;
+  const a = Math.atan2(aimPt.y - ent.y, aimPt.x - ent.x) + rand(-h.spread, h.spread);
+  shoot(ent, a, h.bulletSpeed, h.dmg * (ent.boost > 0 ? 2 : 1), h.theme, 50);
+  play("shoot");
+  spawnParticles(ent.x + Math.cos(a)*30, ent.y + Math.sin(a)*16, 2, "#9ff", 60, 0.15);
+}
+
+/* co-op: enemies hunt the nearest living hero; remote friend can be hurt */
+function targetOf(e){
+  const cands = [player];
+  if (netMode === "host" && remotePlayer && remotePlayer.hp > 0) cands.push(remotePlayer);
+  let best = null, bd = 1e9;
+  for (const c of cands){
+    if (!c || c.hp <= 0) continue;
+    const d = dist(e, c);
+    if (d < bd){ bd = d; best = c; }
+  }
+  return best || player;
+}
+function damageEnt(ent, dmg){
+  if (ent === remotePlayer && netMode === "host"){
+    if (ent.shieldT > 0){                     // friend's shield blocks it too
+      floatText(ent.x, ent.y-56, "🛡 BLOCKED!", "#7fe0ff");
+      spawnParticles(ent.x, ent.y, 4, "#7fe0ff", 90, 0.35);
+      return;
+    }
+    ent.hp -= dmg; play("hit"); shake = Math.max(shake, 5);
+    floatText(ent.x, ent.y-56, "-" + Math.round(dmg), "#ff6b6b");
+    spawnParticles(ent.x, ent.y, 6, "#ff5555", 110, 0.4);
+    if (ent.hp <= 0){ ent.hp = 0; say(ent, "i'm down!!", 2.4); toast("YOUR FRIEND IS DOWN!"); }
+    return;
+  }
+  if (ent === player) damagePlayer(dmg);
+}
+function returnToMenu(){
+  if (netMode === "join") netPostGuest({ type:"left", id: joinId });
+  clearInterval(netTimerPost); clearInterval(netTimerPoll);
+  netTimerPost = netTimerPoll = null;
+  if (mqttClient){ try { mqttClient.end(true); } catch(e){} mqttClient = null; }
+  mqttTried = false; netChannel = "relay";
+  netMode = null; netCode = "";
+  remotePlayer = null; remotePlayerLocal = null;
+  processedJoins = new Set();
+  firing = false;
+  state = "menu";
+  document.getElementById("menu").classList.remove("hidden");
+  document.getElementById("netPanel").classList.add("hidden");
+  // back to layer 1 (title screen) on every return
+  document.getElementById("menuL1").classList.remove("hidden");
+  document.getElementById("menuL2").classList.add("hidden");
+  // restore host-mode chooser so the next match starts fresh
+  document.getElementById("npHostMode").classList.remove("hidden");
+  document.getElementById("npHostMain").classList.add("hidden");
+}
+
+function shoot(from, ang, speed, dmg, col, life){
+  const bx = from.x + Math.cos(ang)*28, by = from.y + Math.sin(ang)*14;
+  bullets.push({ x: bx, y: by,
+    vx: Math.cos(ang)*speed, vy: Math.sin(ang)*speed*0.55 + (Math.sin(ang)>0?4:-4),
+    r: 6, dmg, col, life: life/200,
+    startInside: props.filter(o=>o.solid && Math.hypot(bx-o.x, by-o.y) < o.r + 10) });
+}
+
+/* ================= DAMAGE ================================ */
+function hurtEnemy(e, dmg, burn){
+  e.hp -= dmg; e.hurtT = 0.12;
+  floatText(e.x + rand(-10,10), e.y - 40, Math.round(dmg), "#fff");
+  play("hit");
+  spawnParticles(e.x, e.y, 4, e.col, 90, 0.4);
+  if (e.hp <= 0 && !e.dead){
+    e.dead = true; kills++; streak++;
+    score += (e.kind==="boss"?800 : e.kind==="tank"?150 : 100) + streak*2;
+    const big = e.kind === "boss";
+    for (let i=0;i<(big?50:10);i++) spawnParticles(e.x, e.y, 1, big?"#ff5":e.col, big?260:120, 0.6);
+    if (big){ play("boss_roar"); shake = 18; showBanner("TITAN SLAIN!!", "+800"); say(player, pick(hero.joy), 2.4);
+      oracleChat = { who:"ORACLE", text:"IMPOSSIBLE! You slew a Titan!", t:3.5 };
+      pickups.push(newPickup("heart")); pickups.push(newPickup("star"));
+    } else {
+      if (Math.random()<0.08) pickups.push(newPickup("heart"));
+      else if (Math.random()<0.06) pickups.push(newPickup("star"));
+      if (streak === 10){ toast("KILLSTREAK x10!"); say(player, "unstoppable!", 1.6); }
+      if (streak === 25){ toast("KILLSTREAK x25!!"); oracleChat = { who:"ORACLE", text:"Show off...", t:2.5 }; }
+      if (e.kind === "tank") play("explosion");
+    }
+    if (Math.random() < 0.35) setTimeout(()=>{ if (kills) streak = 0; }, 3000);
+  }
+}
+function damagePlayer(dmg){
+  const p = player;
+  if (p.shieldT > 0){                         // GREAT POWER shield: blocks everything
+    floatText(p.x, p.y-56, "🛡 BLOCKED!", "#7fe0ff");
+    spawnParticles(p.x, p.y, 4, "#7fe0ff", 90, 0.35);
+    return;
+  }
+  p.hp -= dmg; streak = 0;
+  play("hit"); shake = Math.max(shake, 8);
+  flashTime = 0.25; flashColor = "rgba(255,40,40,";
+  floatText(p.x, p.y-56, "-" + Math.round(dmg), "#ff6b6b");
+  spawnParticles(p.x, p.y, 8, "#ff5555", 130, 0.5);
+  if (p.hp <= 0){
+    p.hp = 0; state = "over"; play("death");
+    say(p, "tell my staff... I loved it...", 999);
+  }
+}
+
+/* ================= SUPERPOWER ============================ */
+function usePower(){
+  aim = getAim();
+  usePowerNow(selHero, player, aim);
+}
+
+/* ================= CHARACTER SPECIAL SKILL (key E, fightkaro style) ====== */
+/* Usable ANY TIME — recharges every 4 seconds. Your hero flashes their
+   unique emote + dialogue, unleashes their own skill effect, and gets a
+   brief shield. Short hit-stop makes it feel like a real skill button. */
+const ULT_DUR = 0.9, ULT_CD = 4, ULT_SHIELD = 1.5, ULT_STOP = 0.6;
+function tryUltimate(p){
+  if (!p || p.hp <= 0 || p.ultT > 0 || p.ultCD > 0) return;
+  startUltimate(p);
+}
+function startUltimate(pl){
+  const h = pl.hero; if (!h || !h.ult) return;
+  const id = pl.heroId || "blaze";
+  pl.ultT = ULT_DUR; pl.ultCD = ULT_CD; pl.shieldT = ULT_SHIELD;
+  // quick dramatic hit-stop: enemies + the other hero freeze for the flash
+  for (const e of enemies){ e.stunT = Math.max(e.stunT||0, ULT_STOP); }
+  const other = (pl === player) ? remotePlayer : (netMode === "join" ? remotePlayerLocal : player);
+  if (other && other !== pl) other.stunT = Math.max(other.stunT||0, ULT_STOP);
+  // every hero has their OWN skill effect
+  for (const e of enemies){
+    if (dist(e, pl) > 320) continue;
+    hurtEnemy(e, Math.round(e.maxHp*0.1), false);          // 10% of enemy max HP
+    if (id === "blaze") e.burn = 2.5;                       // 🔥 burning
+    if (id === "frost" || id === "venom") e.slow = 2;       // ❄☠ chilled
+    if (id === "terra"){                                    // 🪨 shockwave knockback
+      const a = Math.atan2(e.y-pl.y, e.x-pl.x);
+      e.x += Math.cos(a)*90; e.y += Math.sin(a)*90;
+    }
+  }
+  if (id === "volt" || id === "gale"){                      // ⚡🌪 damage surge
+    pl.boost = 3;
+    for (const e of enemies){ if (dist(e,pl) < 320 && bolts.length < 8)
+      bolts.push({ x1: pl.x, y1: pl.y-20, x2: e.x, y2: e.y, t: 0.25, col: h.theme }); }
+  }
+  if (id === "shadow") pl.inv = Math.max(pl.inv, 1.5);      // 🌑 untouchable step
+  if (id === "frost") pl.shieldT = 3;                       // ❄ thicker ice armor
+  if (id === "sol"){                                        // ☀ healing light
+    const heal = Math.round(pl.maxHp*0.25);
+    pl.hp = Math.min(pl.maxHp, pl.hp + heal);
+    floatText(pl.x, pl.y-70, "+" + heal + " HP", "#7dff9a");
+  }
+  if (id === "venom") fog = { x: pl.x, y: pl.y, r: 260, t: 4 };   // ☠ toxic cloud
+  startUltimateFx(pl);
+}
+function startUltimateFx(pl){   // emote + dialogue + effect (shared by host & guest)
+  const h = pl.hero; if (!h || !h.ult) return;
+  say(pl, h.ult.line, 1.3);
+  floatText(pl.x, pl.y-70, "★ " + h.ult.name + " ★", h.theme);
+  novaRing(pl.x, pl.y, h.theme);
+  spawnParticles(pl.x, pl.y, 20, h.theme, 240, 0.6);
+  flashTime = 0.22; flashColor = "rgba(255,235,150,";
+  play("power"); shake = Math.max(shake, 8);
+  toast("★ " + h.name + ": " + h.ult.name + "!");
+}
+/* the unique EMOTE floating above the caster while the ultimate plays */
+function drawUltEmote(pl, pr, s){
+  const h = pl.hero, t = ULT_DUR - pl.ultT;
+  const a = Math.min(1, t*3) * Math.min(1, pl.ultT*2.5);
+  const yy = pr.y - 82*s - Math.sin(t*3)*6*s;
+  ctx.save(); ctx.globalAlpha = Math.max(0, a);
+  ctx.strokeStyle = h.theme; ctx.lineWidth = 2.5*s;
+  ctx.beginPath(); ctx.arc(pr.x, yy, 26*s + Math.sin(t*6)*3*s, 0, TAU); ctx.stroke();
+  drawUltSymbol(pl.heroId || "blaze", pr.x, yy, s, t);
+  ctx.font = "900 " + Math.max(10, 12*s) + "px Segoe UI"; ctx.textAlign = "center";
+  ctx.fillStyle = h.theme; ctx.shadowColor = h.theme; ctx.shadowBlur = 12;
+  ctx.fillText("★ " + h.ult.name + " ★", pr.x, yy - 34*s);
+  ctx.shadowBlur = 0; ctx.restore();
+}
+function drawUltSymbol(id, x, y, s, t){
+  const th = HEROES[id] ? HEROES[id].theme : "#fff";
+  ctx.strokeStyle = th; ctx.fillStyle = th;
+  ctx.lineWidth = 3*s; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath();
+  switch (id){
+    case "blaze":   // trio of dancing flames
+      for (let i=-1;i<=1;i++){ ctx.moveTo(x+i*12*s, y+9*s);
+        ctx.quadraticCurveTo(x+i*12*s + i*7*s, y-3*s, x+i*12*s, y-15*s);
+        ctx.quadraticCurveTo(x+i*12*s - i*3*s, y-5*s, x+i*12*s, y+9*s); }
+      break;
+    case "volt":    // lightning bolt
+      ctx.moveTo(x+5*s, y-15*s); ctx.lineTo(x-7*s, y+2*s); ctx.lineTo(x+1*s, y+2*s);
+      ctx.lineTo(x-5*s, y+15*s); ctx.lineTo(x+9*s, y-3*s); ctx.lineTo(x+1*s, y-3*s);
+      ctx.closePath(); break;
+    case "frost":   // six-spoke snowflake
+      for (let i=0;i<6;i++){ const a2 = i/6*TAU + t*0.7;
+        ctx.moveTo(x, y); ctx.lineTo(x+Math.cos(a2)*15*s, y+Math.sin(a2)*15*s); }
+      break;
+    case "shadow":  // crescent moon
+      ctx.moveTo(x + 13*s*Math.cos(0.7), y + 13*s*Math.sin(0.7));
+      ctx.arc(x, y, 13*s, 0.7, TAU-0.7); break;
+    case "terra":   // three rising rocks
+      for (let i=-1;i<=1;i++){ const r2 = (9 + (i===0?5:0))*s;
+        ctx.rect(x+i*14*s - r2/2, y+7*s - r2/2 - Math.abs(i)*4*s, r2, r2); }
+      break;
+    case "gale":    // three wind swirls
+      for (let i=0;i<3;i++){ ctx.moveTo(x-16*s + i*5*s, y+7*s - i*9*s);
+        ctx.quadraticCurveTo(x, y+13*s - i*9*s, x+16*s - i*5*s, y+7*s - i*9*s); }
+      break;
+    case "sol":     // radiant sun
+      ctx.moveTo(x+7*s, y); ctx.arc(x, y, 7*s, 0, TAU);
+      for (let i=0;i<8;i++){ const a2 = i/8*TAU + t*0.5;
+        ctx.moveTo(x+Math.cos(a2)*11*s, y+Math.sin(a2)*11*s);
+        ctx.lineTo(x+Math.cos(a2)*17*s, y+Math.sin(a2)*17*s); }
+      break;
+    default:        // venom: toxic bubbles
+      ctx.moveTo(x-1*s, y+2*s); ctx.arc(x-6*s, y+2*s, 5*s, 0, TAU);
+      ctx.moveTo(x+13*s, y-4*s); ctx.arc(x+7*s, y-4*s, 6*s, 0, TAU);
+      ctx.moveTo(x+4*s, y+9*s); ctx.arc(x, y+9*s, 4*s, 0, TAU);
+      break;
+  }
+  ctx.stroke();
+}
+function usePowerNow(id, p, aimPt){
+  const h = p.hero || HEROES[id];
+  if (!p || !h) return;
+  if (p.powerT > 0) return;
+  p.powerT = h.power.cd;
+  play("power"); shake = Math.max(shake, 7);
+
+  switch (id){
+    case "blaze":                             // FLAME NOVA - burning ring
+      novaRing(p.x, p.y, "#ff7a2f");
+      for (const e of enemies){ if (dist(e,p) < 330){
+        e.hp -= 120; e.burn = 3; e.slow = 1; e.hurtT = 0.15;
+        floatText(e.x, e.y-40, "🔥", "#ff9a2f"); if (e.hp<=0 && !e.dead) hurtEnemy(e, 0.5);
+      } }
+      say(p, "NOVA TIME!", 1.6);
+      break;
+    case "volt": {                            // CHAIN LIGHTNING
+      let src = p, hops = 0;
+      const used = new Set();
+      const cand = enemies.filter(e=>e.spawnT<=0 && !e.dead && dist(e,p)<560)
+                          .sort((x,y)=>dist(x,p)-dist(y,p));
+      for (const e of cand.slice(0, 7)){
+        if (used.has(e)) continue;
+        used.add(e); hops++;
+        bolts.push({ x1: src.x, y1: src.y - 20, x2: e.x, y2: e.y, t: 0.25, col:"#9be8ff" });
+        hurtEnemy(e, 150);
+        src = e;
+      }
+      if (hops) say(p, "THUNDER!", 1.4); else toast("Nobody to zap!");
+      break;
+    }
+    case "frost":                             // BLIZZARD field
+      blizzard = { x: p.x, y: p.y, r: 400, t: 5 };
+      say(p, "WINTER IS HERE!", 1.6);
+      break;
+    case "shadow":                            // SHADOW VORTEX blink-slice
+      blink = { x1: p.x, y1: p.y, t: 0.3 };
+      { const ang = Math.atan2(aimPt.y - p.y, aimPt.x - p.x);
+        const bD = mapBorder();
+        const nx = clamp(p.x + Math.cos(ang)*330, bD.x0 + p.r + BORDER_GAP, bD.x1 - p.r - BORDER_GAP);
+        const ny = clamp(p.y + Math.sin(ang)*220, bD.y0 + p.r + BORDER_GAP, bD.y1 - p.r - BORDER_GAP);
+        for (const e of enemies){
+          const t = ((e.x-p.x)*(nx-p.x)+(e.y-p.y)*(ny-p.y)) / (330*330 + 1);
+          if (t>0 && t<1.1){
+            const cx = p.x + (nx-p.x)*t, cy = p.y + (ny-p.y)*t;
+            if (dist(e, {x:cx,y:cy}) < 90 + e.r) hurtEnemy(e, 170);
+          }
+        }
+        p.x = nx; p.y = ny; p.inv = Math.max(p.inv, 0.6);
+        spawnParticles(nx, ny, 20, "#b06cff", 180, 0.5);
+        say(p, "SHADOW STEP!", 1.4);
+      }
+      break;
+    case "terra": {                            // EARTHQUAKE - shockwave slam
+      novaRing(p.x, p.y, "#d98a3d");
+      rings.push({ x: p.x, y: p.y, r: 220, t: 0.55, col: "#8a5a2b" });
+      shake = 18; play("explosion");
+      for (const e of enemies){
+        if (dist(e,p) < 520){
+          e.hp -= 150; e.slow = 2.2; e.hurtT = 0.15;
+          floatText(e.x, e.y-40, "💥", "#ffd0a0");
+          if (e.hp<=0 && !e.dead) hurtEnemy(e, 0.5);
+        }
+      }
+      say(p, "EARTHQUAKE!!", 1.6);
+      break;
+    }
+    case "gale":                               // TORNADO - pulls enemies in
+      tornado = { x: aimPt.x, y: aimPt.y, r: 300, t: 3.5, spin: 0 };
+      say(p, "TORNADO!", 1.5);
+      break;
+    case "sol": {                               // SOLAR BEAM - line nuke
+      const ang = Math.atan2(aimPt.y - p.y, aimPt.x - p.x);
+      beams.push({ x: p.x, y: p.y, ang, t: 0.45 });
+      shake = Math.max(shake, 10);
+      for (const e of enemies){
+        if (e.spawnT > 0 || e.dead) continue;
+        const dx = e.x - p.x, dy = e.y - (p.y - 20);
+        const along = Math.cos(ang)*dx + Math.sin(ang)*dy;
+        const perp  = Math.abs(-Math.sin(ang)*dx + Math.cos(ang)*dy);
+        if (along > -40 && along < 1500 && perp < 48 + e.r*0.4) hurtEnemy(e, 260);
+      }
+      say(p, "SOLAR BEAM!", 1.5);
+      break;
+    }
+    case "venom":                              // TOXIC FOG - poison cloud
+      fog = { x: aimPt.x, y: aimPt.y, r: 340, t: 5 };
+      say(p, "TOXIC FOG!", 1.5);
+      break;
+  }
+  spawnParticles(p.x, p.y, 26, h.theme, 220, 0.7);
+}
+function novaRing(x,y,col){ rings.push({ x, y, r: 20, t: 0.5, col }); }
+
+/* ================= FX HELPERS ============================ */
+/* push characters out of solid props (they slide along, not through) */
+function resolveObstacles(ent){
+  for (const o of props){
+    if (!o.r) continue;
+    const rr = o.r + ent.r;
+    const dx = ent.x - o.x, dy = ent.y - o.y;
+    const d2 = dx*dx + dy*dy;
+    if (d2 < rr*rr){
+      if (d2 > 0.001){
+        const d = Math.sqrt(d2);
+        ent.x += dx/d * (rr - d);
+        ent.y += dy/d * (rr - d);
+      } else {
+        ent.y += rr;   // dead-center: shove out (north side)
+      }
+    }
+  }
+  // SOLID BORDER — the glowing blue line inside your map photo: the whole
+  // body stays inside it, even when a prop (house/crystal...) shoves you
+  const B = mapBorder();
+  ent.x = clamp(ent.x, B.x0 + ent.r + BORDER_GAP, B.x1 - ent.r - BORDER_GAP);
+  ent.y = clamp(ent.y, B.y0 + ent.r + BORDER_GAP, B.y1 - ent.r - BORDER_GAP);
+}
+/* enemy bullet with "born inside cover" records so shots can escape cover */
+function fireEbullet(x, y, vx, vy, r, dmg, col, life){
+  ebullets.push({
+    x, y, vx, vy, r, dmg, col, life,
+    startInside: props.filter(o=>o.solid && Math.hypot(x-o.x, y-o.y) < o.r + r + 2)
+  });
+}
+function spawnParticles(wx, wy, n, col, spd, life){
+  for (let i=0;i<n;i++){
+    const a = rand(0,TAU), s = rand(spd*0.2, spd);
+    particles.push({ x:wx, y:wy, vx:Math.cos(a)*s, vy:rand(-40,10)+Math.sin(a)*s*0.3,
+      g: rand(120,260), life: rand(life*0.5, life), max: life, col, sz: rand(2,5) });
+  }
+}
+function floatText(wx, wy, text, col){ floaters.push({ x:wx, y:wy, text:String(text), col, life:1 }); }
+function newPickup(kind){
+  const p = player;
+  const bP = mapBorder();
+  return { kind,
+    x: clamp(p.x + rand(-260,260), bP.x0 + 30, bP.x1 - 30),
+    y: clamp(p.y + rand(-160,120), bP.y0 + 30, bP.y1 - 30),
+    life: 12, t: 0 };
+}
+
+/* ================= DRAW ================================== */
+function draw(){
+  const p = player;
+  ctx.save();
+  const sx = (Math.random()*2-1)*shake, sy = (Math.random()*2-1)*shake*0.6;
+  ctx.translate(sx, sy);
+
+  drawSky();
+
+  // world layer: everything below drifts with the camera
+  ctx.save();
+  ctx.translate(-cam.x, -cam.y);
+  drawFloor(0, 0);   // photo locked to the world plane: your blue line NEVER drifts from the characters
+  if (p && p.boost > 0) { ctx.shadowColor = "#ffd23f"; }
+
+  // ---- pickups
+  for (const k of pickups){
+    const pr = project(k.x, k.y);
+    const bob = Math.sin(k.t*4)*4;
+    shadow(pr, 14*pr.s);
+    if (k.kind === "heart"){
+      glow(pr.x, pr.y - 14*pr.s + bob, "#ff3b5c");
+      drawHeart(pr.x, pr.y - 14*pr.s + bob, 11*pr.s);
+    } else {
+      glow(pr.x, pr.y - 14*pr.s + bob, "#ffd23f");
+      drawStar(pr.x, pr.y - 16*pr.s + bob, 10*pr.s);
+    }
+  }
+
+  // ---- blizzard
+  if (blizzard){
+    const bp = project(blizzard.x, blizzard.y);
+    ctx.globalAlpha = 0.28;
+    const g = ctx.createRadialGradient(bp.x, bp.y, 10, bp.x, bp.y, 300*bp.s);
+    g.addColorStop(0, "#bfe8ff"); g.addColorStop(1, "transparent");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(bp.x, bp.y, 300*bp.s, 170*bp.s, 0, 0, TAU); ctx.fill();
+    for (let i=0;i<7;i++){
+      const fx = bp.x + rand(-200,200)*bp.s, fy = bp.y + rand(-110,110)*bp.s;
+      ctx.fillStyle = "#fff"; ctx.fillRect(fx, fy, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---- tornado (swirling spiral of wind)
+  if (tornado){
+    const tp = project(tornado.x, tornado.y);
+    ctx.save(); ctx.translate(tp.x, tp.y);
+    for (let i=0;i<5;i++){
+      const off = tornado.spin + i*1.4;
+      ctx.strokeStyle = `rgba(140,255,190,${0.8 - i*0.13})`;
+      ctx.lineWidth = 5*tp.s; ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(Math.cos(off)*9*tp.s, -i*25*tp.s + Math.sin(off)*4, (22+i*36)*tp.s*0.55, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // ---- toxic fog (billowing green cloud)
+  if (fog){
+    const fp = project(fog.x, fog.y);
+    ctx.globalAlpha = 0.30;
+    const fogG = ctx.createRadialGradient(fp.x, fp.y, 10, fp.x, fp.y, fog.r*fp.s);
+    fogG.addColorStop(0, "rgba(157,255,63,.75)");
+    fogG.addColorStop(1, "transparent");
+    ctx.fillStyle = fogG;
+    ctx.beginPath(); ctx.ellipse(fp.x, fp.y, fog.r*fp.s, fog.r*0.5*fp.s, 0, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  // ---- solar beam (blinding golden lance)
+  for (const bm of beams){
+    const sp = project(bm.x, bm.y);
+    const ex = sp.x + Math.cos(bm.ang)*W, ey = sp.y + Math.sin(bm.ang)*W*0.55;
+    const a2 = clamp(bm.t*3, 0, 1);
+    ctx.lineCap = "round";
+    ctx.shadowColor = "#ffdd55"; ctx.shadowBlur = 45;
+    ctx.strokeStyle = `rgba(255,240,140,${a2})`;
+    ctx.lineWidth = 46*clamp(bm.t*2.4, .25, 1);
+    ctx.beginPath(); ctx.moveTo(sp.x, sp.y-26*sp.s); ctx.lineTo(ex, ey-26*sp.s); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = `rgba(255,255,255,${a2})`; ctx.lineWidth = 11;
+    ctx.beginPath(); ctx.moveTo(sp.x, sp.y-26*sp.s); ctx.lineTo(ex, ey-26*sp.s); ctx.stroke();
+  }
+
+  // ---- rings (nova)
+  for (const r of rings){
+    r.r += 900*0.5*0.5; r.t -= 1/60;
+    const rp = project(r.x, r.y);
+    ctx.globalAlpha = clamp(r.t,0,1);
+    ctx.strokeStyle = r.col; ctx.lineWidth = 8*rp.s;
+    ctx.beginPath(); ctx.ellipse(rp.x, rp.y, r.r*rp.s, r.r*rp.s*0.5, 0, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  rings = rings.filter(r=>r.t>0);
+
+  // ---- blink trail
+  if (blink){ blink.t -= 1/60; const b1 = project(blink.x1, blink.y1), b2 = project(p.x, p.y);
+    ctx.strokeStyle = "rgba(176,108,255," + clamp(blink.t*3,0,1) + ")"; ctx.lineWidth = 6*b1.s;
+    ctx.beginPath(); ctx.moveTo(b1.x, b1.y-30*b1.s); ctx.lineTo(b2.x, b2.y-30*b2.s); ctx.stroke();
+    if (blink.t <= 0) blink = null; }
+  // ---- lightning bolts
+  for (const b of bolts){
+    b.t -= 1/60;
+    const a1 = project(b.x1, b.y1), a2 = project(b.x2, b.y2);
+    ctx.strokeStyle = b.col; ctx.lineWidth = 4; ctx.globalAlpha = clamp(b.t*4,0,1);
+    ctx.beginPath(); ctx.moveTo(a1.x, a1.y-30);
+    const mx = (a1.x+a2.x)/2 + rand(-30,30), my = (a1.y+a2.y)/2 - 90;
+    ctx.lineTo(mx, my); ctx.lineTo(a2.x, a2.y-20); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  bolts = bolts.filter(b=>b.t>0);
+
+  // ---- particles
+  for (const pt of particles){
+    const pp = project(clamp(pt.x,0,WORLD_W), clamp(pt.y,0,WORLD_H));
+    ctx.globalAlpha = clamp(pt.life/pt.max,0,1);
+    ctx.fillStyle = pt.col;
+    ctx.fillRect(pp.x, pp.y - (pt.life*40), pt.sz, pt.sz);
+  }
+  ctx.globalAlpha = 1;
+
+  // ---- enemy bullets
+  for (const b of ebullets){
+    const bp = project(b.x, b.y);
+    glow(bp.x, bp.y, b.col);
+    ctx.fillStyle = b.col;
+    ctx.beginPath(); ctx.arc(bp.x, bp.y, b.r*bp.s, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(bp.x, bp.y, b.r*bp.s*0.4, 0, TAU); ctx.fill();
+  }
+
+  // ---- entities + world props sorted by depth so nearer ones overlap farther ones
+  const extraPl = netMode === "host" && remotePlayer ? [remotePlayer]
+                : (netMode === "join" && remotePlayerLocal ? [remotePlayerLocal] : []);
+  const ents = [...enemies, ...bullets.map(b=>({...b, _bullet:true})), ...props.filter(o=>PROPS.has(o.kind)), p, ...extraPl];
+  ents.sort((a,b)=>a.y - b.y);
+  for (const e of ents){
+    if (e._bullet){
+      const bp = project(e.x, e.y); glow(bp.x, bp.y-4, e.col);
+      ctx.fillStyle = e.col;
+      ctx.beginPath(); ctx.ellipse(bp.x, bp.y-4, 9*bp.s, 4*bp.s, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.ellipse(bp.x, bp.y-4, 4*bp.s, 2*bp.s, 0, 0, TAU); ctx.fill();
+      continue;
+    }
+    if (PROPS.has(e.kind)) drawProp(e);
+    else if (e === p || extraPl.includes(e)) drawPlayer(e);
+    else drawEnemy(e);
+  }
+
+  // speech bubbles on top
+  if (p) drawBubble(p);
+  for (const ep of extraPl) drawBubble(ep);
+  for (const e of enemies) drawBubble(e);
+
+  // ---- hero health bars: YOUR side BLUE, your friend blue too; enemies RED
+  if (p && p.hp > 0) drawHeroBar(p, "YOU", "#38b6ff");
+  for (const ep of extraPl)
+    drawHeroBar(ep, (ep.hero ? ep.hero.name.toUpperCase() : "FRIEND"), "#38b6ff");
+
+  // ---- floaters
+  for (const f of floaters){
+    const fp = project(f.x, f.y);
+    ctx.globalAlpha = clamp(f.life,0,1);
+    ctx.font = `900 ${Math.max(12, 16*fp.s)}px "Segoe UI"`;
+    ctx.fillStyle = f.col; ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 3;
+    ctx.textAlign = "center";
+    ctx.strokeText(f.text, fp.x, fp.y - (1-f.life)*30); ctx.fillText(f.text, fp.x, fp.y - (1-f.life)*30);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();          // end camera (world) layer
+  ctx.restore();          // end shake layer
+  drawCrosshair();
+  if (p && state !== "over") drawHUD();
+  if (flashTime > 0){ ctx.fillStyle = flashColor + (flashTime*1.4) + ")"; ctx.fillRect(0,0,W,H); }
+
+  if (banner) drawBanner();
+  if (oracleChat) drawOracle();
+}
+
+/* -------- arena: sky (fixed) & floor (baked map photo, camera-parallaxed) -------- */
+function drawSky(){
+  ctx.fillStyle = "#07030f"; ctx.fillRect(0,0,W,H);
+  const sky = ctx.createLinearGradient(0,0,0,H*0.3);
+  sky.addColorStop(0, "#0b0220"); sky.addColorStop(1, "#1d0a3a");
+  ctx.fillStyle = sky; ctx.fillRect(0,0,W,H*HORIZON+2);
+  ctx.fillStyle = "rgba(255,255,255,.6)";
+  for (let i=0;i<40;i++){ const x=(i*97)%W, y=(i*53)%(H*HORIZON); ctx.fillRect(x, y, 1.5, 1.5); }
+}
+function drawFloor(px, py){
+  const shiftX = px, shiftY = py;
+  const t0 = project(0, 0), t1 = project(WORLD_W, 0), b0 = project(0, WORLD_H), b1 = project(WORLD_W, WORLD_H);
+  const fl = getFloor(waveNum);
+  if (fl){
+    ctx.drawImage(fl, shiftX, shiftY);
+  } else {
+    const g = ctx.createLinearGradient(0, t0.y, 0, b1.y);
+    g.addColorStop(0, "#150632"); g.addColorStop(0.5, "#1e0745"); g.addColorStop(1, "#2c0b5e");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(t0.x, t0.y); ctx.lineTo(t1.x, t1.y); ctx.lineTo(b1.x, b1.y); ctx.lineTo(b0.x, b0.y);
+    ctx.closePath(); ctx.fill();
+  }
+  /* no drawn wall / grid / blue line any more — the glowing blue line
+     inside your map photo IS the border, and the movement clamp uses it */
+}
+
+/* -------- prop renderers: real objects from your map photos -------- */
+function shadow(pr, r){
+  ctx.fillStyle = "rgba(0,0,0,.35)";
+  ctx.beginPath(); ctx.ellipse(pr.x, pr.y+2, r, r*0.42, 0, 0, TAU); ctx.fill();
+}
+function drawProp(o){
+  const pr = project(o.x, o.y), s = pr.s;
+  const t = performance.now()/1000;
+  if (o.kind === "grass"){
+    shadow(pr, 8*s);
+    for (let i=0;i<5;i++){
+      const bx = pr.x + (i-2)*4.5*s;
+      const hgt = (16 + (i%3)*7)*s;
+      const sway = Math.sin(t*2.2 + o.sway + i)*4*s;
+      ctx.strokeStyle = ["#2e7d32","#43a047","#66bb6a"][i%3];
+      ctx.lineWidth = 2.3*s; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(bx, pr.y);
+      ctx.quadraticCurveTo(bx + sway*0.5, pr.y - hgt*0.6, bx + sway, pr.y - hgt);
+      ctx.stroke();
+    }
+  } else if (o.kind === "net"){
+    shadow(pr, 30*s);
+    // white base wall + red post caps (straight from your photo)
+    ctx.fillStyle = "#e8e0cc";
+    roundRect(pr.x-42*s, pr.y-15*s, 84*s, 15*s, 3*s); ctx.fill();
+    ctx.fillStyle = "#c0392b";
+    roundRect(pr.x-46*s, pr.y-27*s, 9*s, 27*s, 2*s); ctx.fill();
+    roundRect(pr.x+37*s, pr.y-27*s, 9*s, 27*s, 2*s); ctx.fill();
+    // dark steel posts
+    ctx.strokeStyle = "#3a2f22"; ctx.lineWidth = 3*s; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(pr.x-41*s, pr.y-20*s); ctx.lineTo(pr.x-41*s, pr.y-o.h*s-14*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pr.x+41*s, pr.y-20*s); ctx.lineTo(pr.x+41*s, pr.y-o.h*s-14*s); ctx.stroke();
+    // netting between posts
+    ctx.strokeStyle = "rgba(240,246,255,.30)"; ctx.lineWidth = 1;
+    const top = pr.y - o.h*s - 14*s, cols = 7, rows = 5;
+    for (let i=0;i<=cols;i++){
+      const x = pr.x - 41*s + i*82*s/cols;
+      ctx.beginPath(); ctx.moveTo(x, pr.y-18*s); ctx.lineTo(x, top); ctx.stroke();
+    }
+    for (let i=0;i<=rows;i++){
+      const y = pr.y-18*s - i*(o.h+4)*s/rows;
+      ctx.beginPath(); ctx.moveTo(pr.x-41*s, y); ctx.lineTo(pr.x+41*s, y); ctx.stroke();
+    }
+  } else if (o.kind === "pole"){
+    shadow(pr, 20*s);
+    // tri-color pole (red/yellow/green like your court photos)
+    ctx.lineWidth = 5*s; ctx.lineCap = "butt";
+    const segs = [["#c0392b", 0.35], ["#e2b93b", 0.35], ["#27ae60", 0.30]];
+    let yy = pr.y;
+    for (const [col, frac] of segs){
+      const seg = (o.h-60)*s*frac;
+      ctx.strokeStyle = col;
+      ctx.beginPath(); ctx.moveTo(pr.x, yy); ctx.lineTo(pr.x, yy - seg); ctx.stroke();
+      yy -= seg;
+    }
+    // arm + backboard
+    ctx.strokeStyle = "#8a4b2d"; ctx.lineWidth = 3.4*s;
+    ctx.beginPath(); ctx.moveTo(pr.x, yy); ctx.lineTo(pr.x-26*s, yy-10*s); ctx.stroke();
+    ctx.fillStyle = "#e8e0cc"; ctx.strokeStyle = "#333"; ctx.lineWidth = 1.2*s;
+    roundRect(pr.x-46*s, yy-48*s, 36*s, 25*s, 2*s); ctx.fill();
+    roundRect(pr.x-46*s, yy-48*s, 36*s, 25*s, 2*s); ctx.stroke();
+    // target square + ring
+    ctx.strokeStyle = "#c0392b";
+    roundRect(pr.x-39*s, yy-42*s, 21*s, 13*s, 1); ctx.stroke();
+    ctx.strokeStyle = "#ff7043"; ctx.lineWidth = 2.2*s;
+    ctx.beginPath(); ctx.ellipse(pr.x-30*s, yy-27*s, 9*s, 2.8*s, 0, 0, TAU); ctx.stroke();
+  } else if (o.kind === "house"){
+    shadow(pr, 46*s);
+    const hh = o.h * s;
+    // facade — pale flat building straight from your basketball-court photo
+    const fg = ctx.createLinearGradient(pr.x-44*s, pr.y-hh, pr.x+44*s, pr.y);
+    fg.addColorStop(0, "#fdfaf3"); fg.addColorStop(1, "#c7d3df");
+    ctx.fillStyle = fg;
+    roundRect(pr.x-44*s, pr.y-hh, 88*s, hh, 3*s); ctx.fill();
+    ctx.strokeStyle = "#8fa3b5"; ctx.lineWidth = 1.4*s;
+    roundRect(pr.x-44*s, pr.y-hh, 88*s, hh, 3*s); ctx.stroke();
+    // roof band
+    ctx.fillStyle = "#5b7da3"; roundRect(pr.x-48*s, pr.y-hh-9*s, 96*s, 10*s, 2*s); ctx.fill();
+    // window grid, some lit warm at night, with balcony rails
+    const rows = Math.max(2, Math.floor(o.h/72)), cols = 3;
+    for (let r0 = 0; r0 < rows; r0++){
+      for (let c0 = 0; c0 < cols; c0++){
+        const wx = pr.x - 27*s + c0*21*s, wy = pr.y - hh + 18*s + r0*((hh-38*s)/rows);
+        ctx.fillStyle = (r0 + c0) % 3 === 0 ? "rgba(255,214,120,.95)" : "rgba(70,110,160,.85)";
+        roundRect(wx, wy, 13*s, 14*s, 1.5*s); ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1*s; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(wx-1.5*s, wy+15.5*s); ctx.lineTo(wx+14.5*s, wy+15.5*s); ctx.stroke();
+      }
+    }
+    // door
+    ctx.fillStyle = "#7a4a24"; roundRect(pr.x-8*s, pr.y-20*s, 16*s, 20*s, 2*s); ctx.fill();
+    ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(pr.x+3*s, pr.y-10*s, 1.6*s, 0, TAU); ctx.fill();
+    // lit building glow
+    glow(pr.x, pr.y - hh*0.6, "rgba(255,214,120,.45)"); noGlow();
+  } else if (o.kind === "crystal"){
+    shadow(pr, 30*s);
+    const hh = o.h * s;
+    const grd = ctx.createLinearGradient(pr.x-hh/3, pr.y-hh, pr.x+hh/3, pr.y);
+    grd.addColorStop(0, "#7b2ff7"); grd.addColorStop(1, "#2b0a4a");
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.moveTo(pr.x, pr.y-hh-18*s);
+    ctx.lineTo(pr.x+16*s, pr.y-4);
+    ctx.lineTo(pr.x, pr.y+6);
+    ctx.lineTo(pr.x-16*s, pr.y-4);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(0,229,255,.6)"; ctx.stroke();
+  }
+}
+function glow(x,y,col){ ctx.shadowColor = col; ctx.shadowBlur = 18; }
+function noGlow(){ ctx.shadowBlur = 0; }
+
+function drawPlayer(p){
+  const pr = project(p.x, p.y), s = pr.s;
+  shadow(pr, p.r*s);
+  const bobY = Math.sin(p.bob)*3*s;
+  const bx = pr.x, by = pr.y - 34*s*s + bobY;
+  if (p.inv > 0) ctx.globalAlpha = 0.5 + 0.3*Math.sin(performance.now()/40);
+  const boost = p.boost > 0;
+  const h = p.hero || hero;
+  const img = p.photoImg;
+
+  if (img && img.complete && img.naturalWidth){
+    drawPhotoHero(bx, by, s, h, p.dir, boost, p.bob, img, p.heroId);
+  } else {
+    drawHeroBody(bx, by, s, h, p.dir, bobY*4, boost);
+  }
+  noGlow(); ctx.globalAlpha = 1;
+
+  // co-op name tag above the player
+  if (p.tag){
+    ctx.font = `800 ${Math.max(9, 12*s)}px "Segoe UI"`; ctx.textAlign = "center";
+    ctx.strokeStyle = "rgba(0,0,0,.7)"; ctx.lineWidth = 3;
+    ctx.strokeText(p.tag, bx, by - 53*s); ctx.fillStyle = "#8fefff";
+    ctx.fillText(p.tag, bx, by - 53*s);
+  }
+
+  // staff spark when power ready
+  if (p.powerT <= 0){
+    const t = performance.now()/300;
+    glow(bx + 20*s*p.dir, by - 8*s, h.theme);
+    ctx.fillStyle = "#fff";
+    star4(bx + 22*s*p.dir, by - 10*s + Math.sin(t)*2, 4*s);
+    ctx.fill(); noGlow();
+  }
+  // hp mini bar
+  const bw = 44*s;
+  ctx.fillStyle = "rgba(0,0,0,.45)"; roundRect(bx-bw/2, pr.y+6, bw, 5*s, 3); ctx.fill();
+  ctx.fillStyle = "#5cff9d"; roundRect(bx-bw/2+1, pr.y+7, (bw-2)*clamp(p.hp/p.maxHp,0,1), 3*s, 2); ctx.fill();
+}
+
+function drawHeroBody(x, y, s, h, dir, bob, boost){
+  glow(x, y, boost ? "#ffd23f" : h.theme);
+  // rotating rune circle on the ground (3D base)
+  const rot = performance.now()/700;
+  ctx.globalAlpha = 0.55;
+  ctx.strokeStyle = h.theme; ctx.lineWidth = 1.6*s;
+  ctx.beginPath(); ctx.ellipse(x, y+14*s, 21*s, 8*s, 0, 0, TAU); ctx.stroke();
+  ctx.setLineDash([4*s, 3*s]);
+  ctx.beginPath(); ctx.ellipse(x, y+14*s, 14*s, 5.5*s, Math.sin(rot), 0, TAU); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  // cape behind
+  ctx.fillStyle = shade(h.theme, -70);
+  ctx.beginPath(); ctx.moveTo(x-11*s, y-16*s);
+  ctx.quadraticCurveTo(x-21*s*dir, y+2*s, x-8*s*dir, y+10*s);
+  ctx.lineTo(x+8*s*dir, y+10*s); ctx.quadraticCurveTo(x+21*s*dir, y+2*s, x+11*s, y-16*s);
+  ctx.fill();
+  // torso: vertical gradient shading (fake 3D volume)
+  const bg = ctx.createLinearGradient(x, y-18*s, x, y+8*s);
+  bg.addColorStop(0, h.color2); bg.addColorStop(1, shade(h.color, -20));
+  ctx.fillStyle = bg;
+  roundRect(x-10*s, y-18*s, 20*s, 24*s, 7*s); ctx.fill();
+  // glowing chest rune
+  glow(x, y-6*s, h.color2);
+  ctx.fillStyle = h.color2;
+  star4(x, y-6*s, 4.5*s); ctx.fill();
+  noGlow();
+  // head
+  ctx.fillStyle = "#ffe3c8";
+  ctx.beginPath(); ctx.arc(x, y-27*s + bob*0.2, 9*s, 0, TAU); ctx.fill();
+  // hood/hair
+  ctx.fillStyle = h.color2;
+  ctx.beginPath(); ctx.arc(x, y-30*s, 9.5*s, Math.PI, 0); ctx.fill();
+  // eyes
+  ctx.fillStyle = "#20202a";
+  ctx.beginPath(); ctx.arc(x+3.5*s*dir, y-27*s, 1.6*s, 0, TAU); ctx.arc(x-2*s*dir, y-27*s, 1.6*s, 0, TAU); ctx.fill();
+  drawWeapon(x, y, s, dir, h);
+  noGlow();
+  // legs (simple walk)
+  const sw = Math.sin(bob)*5*s;
+  ctx.strokeStyle = h.color; ctx.lineWidth = 4*s;
+  ctx.beginPath(); ctx.moveTo(x-4*s, y+6*s); ctx.lineTo(x-4*s+sw, y+14*s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x+4*s, y+6*s); ctx.lineTo(x+4*s-sw, y+14*s); ctx.stroke();
+}
+
+/* every hero holds a different weapon — small 3D-ish props */
+function drawWeapon(x, y, s, dir, h){
+  const wx = x + 15*s*dir;
+  switch (h.weapon){
+    case "staff":                                   // Blaze: orb staff
+      ctx.strokeStyle = "#caa66f"; ctx.lineWidth = 2.5*s;
+      ctx.beginPath(); ctx.moveTo(wx, y+8*s); ctx.lineTo(wx+2*s, y-16*s); ctx.stroke();
+      glow(wx+2*s, y-18*s, h.color2);
+      ctx.fillStyle = h.color2;
+      ctx.beginPath(); ctx.arc(wx+2*s, y-18*s, 4.5*s, 0, TAU); ctx.fill();
+      break;
+    case "bolt":                                    // Volt: humming bolt rod
+      ctx.strokeStyle = "#5a7a8a"; ctx.lineWidth = 2.2*s;
+      ctx.beginPath(); ctx.moveTo(wx, y+8*s); ctx.lineTo(wx+2*s, y-15*s); ctx.stroke();
+      glow(wx+1*s, y-10*s, h.color);
+      ctx.strokeStyle = h.color2; ctx.lineWidth = 1.6*s;
+      ctx.beginPath();
+      ctx.moveTo(wx+1*s, y-6*s); ctx.lineTo(wx-2*s, y-10*s); ctx.lineTo(wx+4*s, y-13*s); ctx.lineTo(wx, y-17*s);
+      ctx.stroke();
+      break;
+    case "wand":                                    // Frost: ice wand with snowflake
+      ctx.strokeStyle = "#9fc5e8"; ctx.lineWidth = 2*s;
+      ctx.beginPath(); ctx.moveTo(wx, y+8*s); ctx.lineTo(wx+2*s, y-15*s); ctx.stroke();
+      glow(wx+2*s, y-17*s, "#bfe8ff");
+      ctx.strokeStyle = "#fff";
+      for (let a=0; a<6; a++){
+        ctx.beginPath(); ctx.moveTo(wx+2*s, y-17*s);
+        ctx.lineTo(wx+2*s+Math.cos(a/6*TAU)*4*s, y-17*s+Math.sin(a/6*TAU)*4*s); ctx.stroke();
+      }
+      break;
+    case "blades":                                  // Shadow: twin katanas
+      ctx.strokeStyle = "#dcd0ff"; ctx.lineWidth = 2*s;
+      ctx.beginPath(); ctx.moveTo(wx, y+6*s); ctx.lineTo(wx+9*s, y-18*s); ctx.stroke();
+      ctx.strokeStyle = "#8a6cc8"; ctx.lineWidth = 3.4*s;
+      ctx.beginPath(); ctx.moveTo(wx, y+6*s); ctx.lineTo(wx+4*s, y-5*s); ctx.stroke();
+      glow(wx+9*s, y-18*s, h.color2);
+      break;
+    case "hammer":                                  // Terra: war hammer
+      ctx.strokeStyle = "#6e5230"; ctx.lineWidth = 3.4*s;
+      ctx.beginPath(); ctx.moveTo(wx, y+9*s); ctx.lineTo(wx+2*s, y-14*s); ctx.stroke();
+      ctx.fillStyle = "#7f8c8d";
+      roundRect(wx-4*s, y-22*s, 12*s, 10*s, 2*s); ctx.fill();
+      ctx.fillStyle = "#95a5a6";
+      roundRect(wx-4*s, y-22*s, 12*s, 3.5*s, 2*s); ctx.fill();
+      glow(wx+2*s, y-17*s, "#d98a3d");
+      break;
+    case "fan": {                                    // Gale: war fan
+      glow(wx+3*s, y-10*s, "#5cffa0");
+      ctx.fillStyle = "#bfffdc";
+      ctx.beginPath();
+      ctx.moveTo(wx, y+2*s);
+      for (let i=0; i<=6; i++){
+        const a = (-2.2 + i*0.8);
+        ctx.lineTo(wx + Math.cos(a)*15*s, y-6*s + Math.sin(a)*15*s);
+      }
+      ctx.closePath(); ctx.fill();
+      break;
+    }
+    case "sword":                                   // Sol: great sword
+      ctx.strokeStyle = "#fff4c2"; ctx.lineWidth = 4*s; ctx.lineCap = "round";
+      glow(wx+2*s, y-8*s, "#ffc21f");
+      ctx.beginPath(); ctx.moveTo(wx, y+8*s); ctx.lineTo(wx+3*s, y-24*s); ctx.stroke();
+      ctx.strokeStyle = "#e2b93b"; ctx.lineWidth = 3*s;
+      ctx.beginPath(); ctx.moveTo(wx-2*s, y+2*s); ctx.lineTo(wx+8*s, y+2*s); ctx.stroke();
+      break;
+    case "gauntlet":                                // Venom: energy fist
+      glow(wx+3*s, y-4*s, "#8ae23c");
+      ctx.fillStyle = h.color;
+      ctx.beginPath(); ctx.arc(wx+3*s, y-2*s, 6*s, 0, TAU); ctx.fill();
+      ctx.fillStyle = h.color2;
+      ctx.beginPath(); ctx.arc(wx+3*s, y-2*s, 3*s, 0, TAU); ctx.fill();
+      // toxic drip
+      ctx.fillStyle = "rgba(157,255,63,.8)";
+      ctx.beginPath(); ctx.arc(wx+4*s, y+7*s - Math.sin(performance.now()/300)*2*s, 1.8*s, 0, TAU); ctx.fill();
+      break;
+  }
+  noGlow();
+}
+
+/* your real photo as the hero's head: circular crop on the hero body */
+/* Roblox-style hero: blocky themed body (torso / arms / legs) with the
+   uploaded famous-character portrait as the big square head
+   (Blaze = Patrick Jane look, Volt = Thor, ... one skin image per hero) */
+function drawPhotoHero(x, y, s, h, dir, boost, bobSwing, img, skinId){
+  glow(x, y, boost ? "#ffd23f" : h.theme);
+  const outline = "rgba(8,6,18,.6)";
+  ctx.strokeStyle = outline; ctx.lineWidth = 1.4*s;
+  // ---- blocky legs (alternating walk swing)
+  const sw = Math.sin(bobSwing)*3*s;
+  ctx.fillStyle = "#32324a";
+  roundRect(x-9*s+sw, y+2*s, 8*s, 12*s, 2.5*s); ctx.fill(); ctx.stroke();
+  roundRect(x+1*s-sw, y+2*s, 8*s, 12*s, 2.5*s); ctx.fill(); ctx.stroke();
+  // shoes
+  ctx.fillStyle = shade(h.color, -55);
+  roundRect(x-9*s+sw, y+12.5*s, 8*s, 4.5*s, 2*s); ctx.fill(); ctx.stroke();
+  roundRect(x+1*s-sw, y+12.5*s, 8*s, 4.5*s, 2*s); ctx.fill(); ctx.stroke();
+  // ---- arms (swing opposite the legs)
+  ctx.fillStyle = h.color;
+  roundRect(x-16*s, y-13*s - sw*0.4, 6.5*s, 13*s, 3*s); ctx.fill(); ctx.stroke();
+  roundRect(x+9.5*s, y-13*s + sw*0.4, 6.5*s, 13*s, 3*s); ctx.fill(); ctx.stroke();
+  // hands
+  ctx.fillStyle = "#ffcf9e";
+  roundRect(x-16*s, y-2.5*s - sw*0.4, 6.5*s, 4.5*s, 2*s); ctx.fill(); ctx.stroke();
+  roundRect(x+9.5*s, y-2.5*s + sw*0.4, 6.5*s, 4.5*s, 2*s); ctx.fill(); ctx.stroke();
+  // ---- torso: hero-colored block with bright collar + chest emblem
+  ctx.fillStyle = h.color;
+  roundRect(x-10*s, y-16*s, 20*s, 20*s, 3.5*s); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = shade(h.color, 40);
+  roundRect(x-10*s, y-16*s, 20*s, 5.5*s, 3.5*s); ctx.fill();
+  glow(x, y-7*s, h.color2);
+  ctx.fillStyle = h.color2;
+  star4(x, y-7*s, 4.2*s); ctx.fill();
+  noGlow();
+  // ---- big square Roblox head with the famous-character portrait as the face
+  const hw = 24*s, hy = y - 34*s;
+  const P = skinCrop(skinId);
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const side = Math.min(iw, ih) * P.zoom;
+  const sx = clamp(iw*P.focusX - side/2, 0, iw - side);
+  const sy = clamp(ih*P.focusY - side/2, 0, ih - side);
+  ctx.save();
+  roundRect(x-hw/2, hy-hw/2, hw, hw, 7*s); ctx.clip();
+  ctx.drawImage(img, sx, sy, side, side, x-hw/2, hy-hw/2, hw, hw);
+  ctx.restore();
+  ctx.strokeStyle = boost ? "#ffd23f" : h.color2; ctx.lineWidth = 2.2*s;
+  roundRect(x-hw/2, hy-hw/2, hw, hw, 7*s); ctx.stroke();
+  noGlow();
+}
+
+function drawEnemy(e){
+  const pr = project(e.x, e.y), s = pr.s;
+  const appear = 1 - clamp(e.spawnT / (e.kind==="boss" ? 1.2 : 0.5), 0, 1);
+  ctx.globalAlpha = e.spawnT > 0 ? appear*0.8 : 1;
+  if (e.spawnT > 0){
+    // summon circle
+    ctx.strokeStyle = e.col; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(pr.x, pr.y, e.r*s*(1+e.spawnT), e.r*s*0.45*(1+e.spawnT), 0,0,TAU); ctx.stroke();
+  }
+  shadow(pr, e.r*s);
+  const bob = Math.sin(performance.now()/200 + e.x)*2.5*s;
+  const y = pr.y - e.r*1.15*s*s + bob;
+  glow(pr.x, y, e.col);
+  const flash = e.hurtT > 0;
+  const body = flash ? "#fff" : e.col;
+
+  if (e.kind === "boss"){
+    // horned titan
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.ellipse(pr.x, y, 30*s, 34*s, 0,0,TAU); ctx.fill();
+    ctx.fillStyle = "#2b0510";
+    ctx.beginPath(); ctx.ellipse(pr.x - 12*s, y - 10*s, 8*s, 6*s, 0, 0, TAU);
+    ctx.ellipse(pr.x + 12*s, y - 10*s, 8*s, 6*s, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#ffdd55";
+    ctx.beginPath(); ctx.arc(pr.x-12*s, y-10*s, 3.4*s, 0,TAU); ctx.arc(pr.x+12*s, y-10*s, 3.4*s, 0,TAU); ctx.fill();
+    ctx.strokeStyle = "#2b0510"; ctx.lineWidth = 4*s;
+    ctx.beginPath(); ctx.moveTo(pr.x-22*s, y-30*s); ctx.quadraticCurveTo(pr.x-34*s, y-52*s, pr.x-14*s, y-46*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pr.x+22*s, y-30*s); ctx.quadraticCurveTo(pr.x+34*s, y-52*s, pr.x+14*s, y-46*s); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,60,60,.7)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(pr.x, pr.y, 60*s + Math.sin(performance.now()/150)*6*s, 26*s, 0, 0, TAU); ctx.stroke();
+  } else if (e.kind === "shooter"){
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.moveTo(pr.x, y-16*s); ctx.lineTo(pr.x+14*s, y+8*s); ctx.lineTo(pr.x-14*s, y+8*s); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(pr.x, y-4*s, 4*s, 0, TAU); ctx.fill();
+    // little hood
+    ctx.fillStyle = shade(e.col, -40);
+    ctx.beginPath(); ctx.moveTo(pr.x-12*s, y-6*s); ctx.lineTo(pr.x, y-20*s); ctx.lineTo(pr.x+12*s, y-6*s); ctx.fill();
+  } else if (e.kind === "tank"){
+    ctx.fillStyle = body;
+    roundRect(pr.x-20*s, y-14*s, 40*s, 26*s, 8*s); ctx.fill();
+    ctx.fillStyle = "#0c3512"; roundRect(pr.x-13*s, y-6*s, 26*s, 8*s, 3*s); ctx.fill();
+    ctx.fillStyle = "#ff8"; 
+    ctx.beginPath(); ctx.arc(pr.x-8*s, y-2*s, 2.5*s, 0,TAU); ctx.arc(pr.x+8*s, y-2*s, 2.5*s, 0,TAU); ctx.fill();
+  } else { // crawler
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.arc(pr.x, y, 12*s, 0, TAU); ctx.fill();
+    // eyes
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(pr.x-4.5*s, y-3*s, 3.4*s, 0,TAU); ctx.arc(pr.x+4.5*s, y-3*s, 3.4*s, 0,TAU); ctx.fill();
+    ctx.fillStyle = "#111";
+    ctx.beginPath(); ctx.arc(pr.x-4*s+e.dir*1.5, y-3*s, 1.6*s, 0,TAU); ctx.arc(pr.x+5*s+e.dir*1.5, y-3*s, 1.6*s, 0,TAU); ctx.fill();
+    // little legs
+    ctx.strokeStyle = body; ctx.lineWidth = 2.4*s;
+    const w = Math.sin(performance.now()/90 + e.x)*4*s;
+    ctx.beginPath(); ctx.moveTo(pr.x-8*s, y+8*s); ctx.lineTo(pr.x-11*s+w*0.4, y+15*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pr.x+8*s, y+8*s); ctx.lineTo(pr.x+11*s-w*0.4, y+15*s); ctx.stroke();
+  }
+  noGlow(); ctx.globalAlpha = 1;
+
+  // hp bar
+  if (e.hp < e.maxHp){
+    const bw = (e.kind==="boss"?70:34)*s;
+    ctx.fillStyle = "rgba(0,0,0,.5)"; roundRect(pr.x-bw/2, pr.y - e.r*2.2*s - 6, bw, 5*s, 2); ctx.fill();
+    ctx.fillStyle = "#ff4444";   // enemy side = RED
+    roundRect(pr.x-bw/2+1, pr.y - e.r*2.2*s - 5, (bw-2)*clamp(e.hp/e.maxHp,0,1), 4*s, 2); ctx.fill();
+  }
+}
+
+/* hero health bar (blue side) + shield bubble + ULTIMATE emote */
+function drawHeroBar(pl, label, col){
+  const pr = project(pl.x, pl.y), s = pr.s;
+  const bw = 46*s, frac = clamp(pl.hp/pl.maxHp, 0, 1);
+  const by = pr.y - 48*s;
+  ctx.fillStyle = "rgba(0,0,0,.55)"; roundRect(pr.x-bw/2-1, by-1, bw+2, 7*s+2, 3); ctx.fill();
+  ctx.fillStyle = col; roundRect(pr.x-bw/2, by, bw*frac, 7*s, 3); ctx.fill();
+  ctx.font = "800 " + Math.max(9, 10*s).toFixed(1) + "px Segoe UI"; ctx.textAlign = "center";
+  ctx.fillStyle = "#bfe9ff";
+  ctx.fillText(label + " " + Math.ceil(pl.hp), pr.x, by - 4);
+  if (pl.shieldT > 0){                       // 🛡 shield bubble while protected
+    ctx.strokeStyle = "rgba(127,224,255,.85)"; ctx.lineWidth = 2*s;
+    ctx.beginPath(); ctx.ellipse(pr.x, pr.y-16*s, 27*s, 36*s, 0, 0, TAU); ctx.stroke();
+    ctx.fillStyle = "rgba(127,224,255,.10)";
+    ctx.beginPath(); ctx.ellipse(pr.x, pr.y-16*s, 27*s, 36*s, 0, 0, TAU); ctx.fill();
+  }
+  if (pl.ultT > 0) drawUltEmote(pl, pr, s);  // ★ unique emote while the great power plays
+}
+
+function shade(hex, amt){
+  const n = parseInt(hex.slice(1),16);
+  const r = clamp((n>>16)+amt,0,255), g = clamp(((n>>8)&255)+amt,0,255), b = clamp((n&255)+amt,0,255);
+  return `rgb(${r},${g},${b})`;
+}
+function star4(x,y,r){
+  ctx.beginPath();
+  for (let i=0;i<8;i++){
+    const a = i/8*TAU, rr = i%2 ? r*0.4 : r;
+    ctx.lineTo(x+Math.cos(a)*rr, y+Math.sin(a)*rr);
+  }
+  ctx.closePath();
+}
+function drawHeart(x,y,r){
+  ctx.fillStyle = "#ff3b5c";
+  ctx.beginPath();
+  ctx.moveTo(x, y+r*0.9);
+  ctx.bezierCurveTo(x-r*1.4, y-r*0.2, x-r*0.7, y-r*1.3, x, y-r*0.3);
+  ctx.bezierCurveTo(x+r*0.7, y-r*1.3, x+r*1.4, y-r*0.2, x, y+r*0.9);
+  ctx.fill();
+}
+function drawStar(x,y,r){
+  ctx.fillStyle = "#ffd23f";
+  ctx.beginPath();
+  for (let i=0;i<10;i++){
+    const a = -Math.PI/2 + i/10*TAU, rr = i%2 ? r*0.45 : r;
+    ctx.lineTo(x+Math.cos(a)*rr, y+Math.sin(a)*rr);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+/* -------- crosshair -------- */
+function drawCrosshair(){
+  const r = 12, p = performance.now()/500;
+  ctx.strokeStyle = player && player.boost>0 ? "#ffd23f" : "#00e5ff"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(mouse.x, mouse.y, r + Math.sin(p)*2, 0, TAU); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(mouse.x-r-6, mouse.y); ctx.lineTo(mouse.x-r+4, mouse.y);
+  ctx.moveTo(mouse.x+r+6, mouse.y); ctx.lineTo(mouse.x+r-4, mouse.y);
+  ctx.moveTo(mouse.x, mouse.y-r-6); ctx.lineTo(mouse.x, mouse.y-r+4);
+  ctx.moveTo(mouse.x, mouse.y+r+6); ctx.lineTo(mouse.x, mouse.y+r-4);
+  ctx.stroke();
+}
+
+/* -------- HUD -------- */
+function drawHUD(){
+  const p = player, h = hero;
+  const pw = Math.min(420, W*0.36), px = 24, py = 22;
+  // panel
+  ctx.fillStyle = "rgba(5,2,16,.65)";
+  roundRect(px-10, py-12, pw+110, 64, 12); ctx.fill();
+  ctx.strokeStyle = "rgba(0,229,255,.35)"; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // hp (OWN side = BLUE, enemy side = RED — like a real arena)
+  ctx.fillStyle = "#38b6ff"; roundRect(px, py, pw*clamp(p.hp/p.maxHp,0,1), 14, 7); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.15)"; roundRect(px, py, pw, 14, 7); ctx.fill();
+  ctx.font = "800 13px Segoe UI"; ctx.textAlign = "left";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("♥ " + Math.ceil(p.hp) + " / " + p.maxHp + (p.shieldT>0 ? "   🛡 SHIELD" : ""), px+8, py+11);
+
+  // power
+  const ready = p.powerT <= 0;
+  if (ready && !saidPowerReady){ saidPowerReady = true; toast("⚡ SUPERPOWER READY — PRESS SPACE!"); }
+  const cdx = px + pw + 16;
+  ctx.beginPath(); ctx.arc(cdx+20, py+30, 20, 0, TAU);
+  ctx.fillStyle = ready ? h.theme : "rgba(60,40,90,.8)"; ctx.fill();
+  if (ready){ glow(cdx+20, py+30, h.theme); ctx.fill(); }
+  noGlow();
+  ctx.fillStyle = ready ? "#fff" : "#888";
+  ctx.font = "900 9px Segoe UI"; ctx.textAlign = "center";
+  ctx.fillText("SPACE", cdx+20, py+33);
+  if (ready){
+    ctx.fillStyle = "#0ff"; ctx.font = "800 10px Segoe UI";
+    ctx.fillText("POWER READY!", cdx+20, py+58);
+  }
+  if (!ready){
+    ctx.beginPath(); ctx.moveTo(cdx+20, py+30);
+    ctx.arc(cdx+20, py+30, 20, -Math.PI/2, -Math.PI/2 + TAU*(1-p.powerT/h.power.cd)); ctx.closePath();
+    ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fill();
+  }
+
+  // ---- CHARACTER SPECIAL SKILL (fightkaro style) — usable any time, 4s recharge
+  const ultReady = p.ultCD <= 0 && p.ultT <= 0;
+  const udx = cdx + 58;
+  ctx.beginPath(); ctx.arc(udx+18, py+30, 17, 0, TAU);
+  ctx.fillStyle = ultReady ? "#ffd23f" : "rgba(60,40,90,.8)"; ctx.fill();
+  if (ultReady){ glow(udx+18, py+30, "#ffd23f"); ctx.fill(); }
+  noGlow();
+  ctx.fillStyle = ultReady ? "#241300" : "#999";
+  ctx.font = "900 11px Segoe UI"; ctx.textAlign = "center";
+  ctx.fillText("E", udx+18, py+34);
+  ctx.font = "800 9px Segoe UI"; ctx.textAlign = "center";
+  ctx.fillStyle = ultReady ? "#ffd23f" : "#8a7a99";
+  ctx.fillText(ultReady ? "★ SKILL READY!" : "RECHARGING " + Math.ceil(p.ultCD) + "s", udx+18, py+58);
+  if (!ultReady){
+    ctx.beginPath(); ctx.moveTo(udx+18, py+30);
+    ctx.arc(udx+18, py+30, 17, -Math.PI/2, -Math.PI/2 + TAU*(1 - p.ultCD/ULT_CD)); ctx.closePath();
+    ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fill();
+  }
+
+  // ---- friend's health (co-op): small blue bar under your panel
+  const fr = netMode === "host" ? remotePlayer : (netMode === "join" ? remotePlayerLocal : null);
+  if (fr && fr.maxHp){
+    ctx.fillStyle = "rgba(5,2,16,.55)"; roundRect(px-10, py+58, pw+110, 24, 8); ctx.fill();
+    ctx.font = "800 11px Segoe UI"; ctx.textAlign = "left"; ctx.fillStyle = "#9fd8ff";
+    ctx.fillText("P2 · " + (fr.hero ? fr.hero.name.toUpperCase() : "FRIEND") +
+      (fr.shieldT>0 ? " 🛡" : "") + (fr.stunT>0 ? " 💤" : ""), px, py+74);
+    ctx.fillStyle = "rgba(255,255,255,.12)"; roundRect(px+120, py+64, pw*0.55, 12, 6); ctx.fill();
+    ctx.fillStyle = "#38b6ff"; roundRect(px+120, py+64, pw*0.55*clamp(fr.hp/fr.maxHp,0,1), 12, 6); ctx.fill();
+  }
+
+  // wave / score
+  ctx.textAlign = "right"; ctx.font = "900 22px Segoe UI"; ctx.fillStyle = "#0ff";
+  ctx.fillText("WAVE " + Math.max(waveNum,1), W-24, 40);
+  ctx.font = "700 16px Segoe UI"; ctx.fillStyle = "#ffd76d";
+  ctx.fillText("★ " + score + "   ☠ " + kills + (streak>2 ? "   🔥x"+streak : ""), W-24, 66);
+
+  // ---- how-to-play tips (first seconds of the match)
+  if (tutorialT > 0 && state === "play"){
+    const msg = tutorialT > 16 ? "WASD / ARROWS = walk     MOUSE = aim"
+              : tutorialT > 8  ? "HOLD LEFT MOUSE = shoot · hide behind nets & houses for cover!"
+              : "⚡ POWER = SPACE · ★ SKILL = E (every 4s) · 🛡 shield blocks damage!";
+    ctx.font = "800 15px Segoe UI"; ctx.textAlign = "center";
+    const twd = ctx.measureText(msg).width + 40;
+    ctx.fillStyle = "rgba(5,2,16,.75)"; roundRect(W/2 - twd/2, 14, twd, 32, 16); ctx.fill();
+    ctx.strokeStyle = "rgba(0,229,255,.4)"; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.fillStyle = "#9ff";
+    ctx.fillText(msg, W/2, 36);
+  }
+
+  // boss bar
+  const boss = enemies.find(e=>e.kind==="boss");
+  if (boss){
+    const bw = Math.min(560, W*0.5), bx = (W-bw)/2, by = H-46;
+    ctx.fillStyle = "rgba(5,2,16,.7)"; roundRect(bx-14, by-26, bw+28, 44, 10); ctx.fill();
+    ctx.font = "900 13px Segoe UI"; ctx.textAlign = "center"; ctx.fillStyle = "#ff6666";
+    ctx.fillText("☠ ARENA TITAN ☠", W/2, by-10);
+    ctx.fillStyle = "rgba(255,255,255,.12)"; roundRect(bx, by, bw, 12, 6); ctx.fill();
+    ctx.fillStyle = "#ff2b2b"; roundRect(bx, by, bw*clamp(boss.hp/boss.maxHp,0,1), 12, 6); ctx.fill();
+  }
+
+  // wave progress hint
+  if (waveState === "cleared"){
+    ctx.font = "600 15px Segoe UI"; ctx.textAlign = "center"; ctx.fillStyle = "#9f8fd8";
+    ctx.fillText("next wave in " + Math.ceil(waveTimer) + "s", W/2, H-20);
+  }
+
+  // ✕ EXIT button (top-right) — usable anytime during the fight
+  exitBtnRect = { x: W-48, y: 88, w: 36, h: 36 };
+  ctx.fillStyle = "rgba(255,60,60,.15)"; roundRect(exitBtnRect.x, exitBtnRect.y, exitBtnRect.w, exitBtnRect.h, 9); ctx.fill();
+  ctx.strokeStyle = "rgba(255,120,120,.75)"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.font = "900 17px Segoe UI"; ctx.textAlign = "center"; ctx.fillStyle = "#ff9a9a";
+  ctx.fillText("✕", exitBtnRect.x + exitBtnRect.w/2, exitBtnRect.y + 24);
+  ctx.font = "600 9px Segoe UI"; ctx.fillStyle = "rgba(255,150,150,.8)";
+  ctx.fillText("EXIT", exitBtnRect.x + exitBtnRect.w/2 + 1, exitBtnRect.y + exitBtnRect.h + 11);
+}
+
+/* -------- banners & oracle chat -------- */
+function drawBanner(){
+  const a = clamp(banner.t*2, 0, 1);
+  ctx.globalAlpha = a;
+  ctx.textAlign = "center";
+  if (banner.small){
+    ctx.font = "800 24px Segoe UI"; ctx.fillStyle = "#ffe28a";
+    ctx.strokeStyle = "rgba(0,0,0,.7)"; ctx.lineWidth = 5;
+    ctx.strokeText(banner.text, W/2, 130); ctx.fillText(banner.text, W/2, 130);
+  } else {
+    const g = ctx.createLinearGradient(0,0,W,120);
+    g.addColorStop(0, "#ff5f6d"); g.addColorStop(0.5, "#ffc371"); g.addColorStop(1, "#7b2ff7");
+    ctx.font = `900 ${Math.min(0.085*W, 64)}px Segoe UI`;
+    ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 8;
+    ctx.strokeText(banner.text, W/2, H*0.32);
+    ctx.fillStyle = g; ctx.fillText(banner.text, W/2, H*0.32);
+    if (banner.sub){
+      ctx.font = "700 20px Segoe UI"; ctx.fillStyle = "#cdb8ff";
+      ctx.fillText(banner.sub, W/2, H*0.32 + 34);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function drawOracle(){
+  const o = oracleChat, a = clamp(o.t, 0, 1);
+  const boxW = Math.min(640, W*0.66), boxH = 66, bx = (W-boxW)/2, by = H - boxH - 16;
+  ctx.globalAlpha = a;
+  ctx.fillStyle = "rgba(8,4,24,.88)";
+  roundRect(bx, by, boxW, boxH, 12); ctx.fill();
+  ctx.strokeStyle = "#7b2ff7"; ctx.lineWidth = 2; ctx.stroke();
+  // little portrait
+  glow(bx+34, by+30, "#b06cff"); ctx.fillStyle = "#2b0a4a";
+  ctx.beginPath(); ctx.arc(bx+34, by+30, 22, 0, TAU); ctx.fill(); noGlow();
+  ctx.fillStyle = "#b06cff";
+  ctx.beginPath(); ctx.arc(bx+34, by+24, 10, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#c9b3ff"; ctx.font = "700 11px Segoe UI"; ctx.textAlign = "center";
+  ctx.fillText("ORACLE", bx+34, by+45);
+  ctx.fillStyle = "#efe6ff"; ctx.font = "600 15px Segoe UI"; ctx.textAlign = "left";
+  wrapText('"' + o.text + '"', bx+70, by+26, boxW-88, 19);
+  ctx.globalAlpha = 1;
+}
+function wrapText(text, x, y, maxW, lh){
+  const words = text.split(" "); let line = "", yy = y;
+  for (const w of words){
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxW && line){ ctx.fillText(line, x, yy); line = w; yy += lh; }
+    else line = test;
+  }
+  if (line) ctx.fillText(line, x, yy);
+}
+
+/* ================= MENU ================================= */
+let selHero = "blaze";
+function buildMenu(){
+  const wrap = document.getElementById("heroes");
+  for (const [id, h] of Object.entries(HEROES)){
+    const card = document.createElement("div");
+    card.className = "hero-card" + (id===selHero ? " sel" : "");
+    card.dataset.hero = id;
+    card.innerHTML = `<canvas width="96" height="96"></canvas>
+      <h3>${h.name}</h3><div class="cls">${h.cls}</div>
+      <p>${h.desc}</p><div class="pw">⚡ ${h.power.name}<br>CD ${h.power.cd}s</div>`;
+    card.onclick = ()=>{
+      selHero = id;
+      document.querySelectorAll(".hero-card").forEach(c=>c.classList.toggle("sel", c.dataset.hero===id));
+    };
+    wrap.appendChild(card);
+    // draw mini hero (your real photo when available!)
+    const c = card.querySelector("canvas").getContext("2d");
+    const fake = { color:h.color, color2:h.color2, theme:h.theme };
+    const pf = heroPhotoFile(id);
+    if (pf){
+      const ph = new Image();
+      // skins (not your player face) use the per-hero skin crop + Roblox-square head
+      const skin = !pf.toLowerCase().startsWith("player");
+      ph.onload = ()=> drawMenuPhoto(c, ph, fake, 96, 96, skin ? id : null);
+      ph.src = "assets/characters/" + pf;
+    } else {
+      c.save(); c.scale(0.85, 0.85); c.translate(56, 62);
+      drawHeroMini(c, fake);
+      c.restore();
+    }
+  }
+}
+/* photo-style menu card: the character portrait in a Roblox-square head
+   (skins) or a circular face (your player photo) on hero-colored shoulders */
+function drawMenuPhoto(g, img, h, w, hgt, skinId){
+  w = w || 96; hgt = hgt || 96;
+  g.clearRect(0,0,w,hgt);
+  const P = skinId ? skinCrop(skinId) : PHOTO;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const side = Math.min(iw, ih) * (P.zoom * 1.15);
+  const sx = clamp(iw*P.focusX - side/2, 0, iw-side);
+  const sy = clamp(ih*P.focusY - side/2, 0, ih-side);
+  // shoulders
+  g.fillStyle = h.color;
+  g.beginPath(); g.ellipse(48, 88, 26, 20, 0, Math.PI, 0); g.fill();
+  // head: Roblox rounded square for skins, circle for your photo
+  const r = 30;
+  g.save();
+  if (skinId){
+    g.beginPath(); g.moveTo(48-r+10, 38-r);
+    g.arcTo(48+r, 38-r, 48+r, 38+r, 10); g.arcTo(48+r, 38+r, 48-r, 38+r, 10);
+    g.arcTo(48-r, 38+r, 48-r, 38-r, 10); g.arcTo(48-r, 38-r, 48+r, 38-r, 10);
+    g.closePath();
+  } else { g.beginPath(); g.arc(48, 38, r, 0, TAU); }
+  g.clip();
+  g.drawImage(img, sx, sy, side, side, 48-r, 38-r, r*2, r*2);
+  g.restore();
+  const rg = g.createLinearGradient(24,0,72,0);
+  rg.addColorStop(0, h.color); rg.addColorStop(1, h.color2);
+  g.strokeStyle = rg; g.lineWidth = 3.5;
+  if (skinId){
+    g.beginPath(); g.moveTo(48-r+10, 38-r+1.75);
+    g.arcTo(48+r-1.75, 38-r+1.75, 48+r-1.75, 38+r-1.75, 10);
+    g.arcTo(48+r-1.75, 38+r-1.75, 48-r+1.75, 38+r-1.75, 10);
+    g.arcTo(48-r+1.75, 38+r-1.75, 48-r+1.75, 38-r+1.75, 10);
+    g.arcTo(48-r+1.75, 38-r+1.75, 48+r-1.75, 38-r+1.75, 10);
+    g.closePath(); g.stroke();
+  } else { g.beginPath(); g.arc(48, 38, r, 0, TAU); g.stroke(); }
+}
+function drawHeroMini(c, h){
+  const g = c; // shorthand
+  g.fillStyle = shade(h.color2,-30);
+  g.beginPath(); g.moveTo(-10,-18); g.quadraticCurveTo(-20,4,-8,10); g.lineTo(8,10);
+  g.quadraticCurveTo(20,4,10,-18); g.fill();
+  g.fillStyle = h.color; g.beginPath();
+  g.arc(0,0,14,0,TAU); g.fill();
+  g.fillStyle = "#ffe3c8"; g.beginPath(); g.arc(0,-9,9,0,TAU); g.fill();
+  g.fillStyle = h.color2; g.beginPath(); g.arc(0,-12,9.5,Math.PI,0); g.fill();
+  g.fillStyle = "#20202a"; g.beginPath(); g.arc(3,-9,1.6,0,TAU); g.arc(-2.5,-9,1.6,0,TAU); g.fill();
+  g.strokeStyle = "#caa66f"; g.lineWidth = 2.5;
+  g.beginPath(); g.moveTo(14,6); g.lineTo(16,-16); g.stroke();
+  g.fillStyle = h.color2; g.shadowColor = h.color2; g.shadowBlur = 10;
+  g.beginPath(); g.arc(16,-18,4.5,0,TAU); g.fill(); g.shadowBlur = 0;
+}
+document.getElementById("startBtn").onclick = startGame;
+
+/* menu layers: L1 = title + main buttons, L2 = character select */
+document.getElementById("goHeroBtn").onclick = ()=>{
+  document.getElementById("menuL1").classList.add("hidden");
+  document.getElementById("menuL2").classList.remove("hidden");
+};
+document.getElementById("backL1").onclick = ()=>{
+  document.getElementById("menuL2").classList.add("hidden");
+  document.getElementById("menuL1").classList.remove("hidden");
+};
+
+/* ================= MULTIPLAYER MENU WIRING =================== */
+const npEl = id => document.getElementById(id);
+npEl("netBtn").onclick = ()=>{
+  npEl("netPanel").classList.remove("hidden");
+  npEl("npChoice").classList.remove("hidden");
+  npEl("npHostView").classList.add("hidden");
+  npEl("npJoinView").classList.add("hidden");
+};
+npEl("npHost").onclick = ()=>{
+  npEl("npChoice").classList.add("hidden");
+  npEl("npJoinView").classList.add("hidden");
+  npEl("npHostView").classList.remove("hidden");
+};
+npEl("npLanHost").onclick = ()=>{        // friend is on this same WiFi
+  const onWeb = !["localhost","127.0.0.1"].includes(location.hostname);
+  npEl("npHostMode").classList.add("hidden");
+  npEl("npHostMain").classList.remove("hidden");
+  if (onWeb){   // on the WEBSITE there is no local relay -> use the global lobby
+    npEl("npAddrLine").classList.add("hidden");
+    npEl("npHostHow").textContent = "🌐 Website mode: your friend opens THIS SAME WEBSITE → PLAY WITH FRIEND → JOIN → type this code. Works on any WiFi, anywhere!";
+    hostGame(true);
+    return;
+  }
+  npEl("npAddrLine").classList.remove("hidden");
+  npEl("npHostHow").textContent = "Friend must be on the SAME WiFi. They open the address below in a browser → PLAY WITH FRIEND → JOIN → type this code.";
+  hostGame(false);
+};
+npEl("npNetHost").onclick = ()=>{        // friend is on ANOTHER WiFi (internet play)
+  npEl("npHostMode").classList.add("hidden");
+  npEl("npHostMain").classList.remove("hidden");
+  npEl("npAddrLine").classList.add("hidden");
+  npEl("npHostHow").textContent = "★ INTERNET MODE ★ Send your friend the game file ONE time (WhatsApp/Drive as a file). They open it in any browser → PLAY WITH FRIEND → JOIN → type this code. Works on any WiFi, anywhere!";
+  hostGame(true);
+};
+npEl("npJoin").onclick = ()=>{
+  npEl("npChoice").classList.add("hidden");
+  npEl("npHostView").classList.add("hidden");
+  npEl("npJoinView").classList.remove("hidden");
+  npEl("npCodeIn").focus();
+};
+npEl("npStart").onclick = ()=>{        // host: enter the arena with the code ready
+  npEl("netPanel").classList.add("hidden");
+  startGame();
+};
+npEl("npConnect").onclick = ()=>{
+  const c = npEl("npCodeIn").value.trim().toUpperCase();
+  if (c.length < 4){ npEl("npJoinStatus").textContent = "Type the full code first!"; return; }
+  npEl("netPanel").classList.add("hidden");
+  joinGame(c);                       // shows 'connecting' screen until first snapshot
+};
+npEl("npBack").onclick = returnToMenu; // also clears relay timers / lobby state
+
+/* how-to-play panel */
+npEl("helpBtn").onclick = ()=>{ npEl("helpPanel").classList.remove("hidden"); };
+npEl("hpClose").onclick = ()=>{ npEl("helpPanel").classList.add("hidden"); };
+
+/* ================= MAIN LOOP ============================= */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  if (state !== "menu"){
+    update(dt);
+    if (state === "queued"){
+      ctx.fillStyle = "#07030f"; ctx.fillRect(0,0,W,H);
+      ctx.textAlign = "center";
+      ctx.font = "900 30px Segoe UI"; ctx.fillStyle = "#7bdd8a";
+      ctx.fillText("CALLING THROUGH THE RELAY...", W/2, H*0.40);
+      ctx.font = "700 17px Segoe UI"; ctx.fillStyle = "#9f8fd8";
+      ctx.fillText("room code: " + netCode, W/2, H*0.40 + 42);
+    } else if (state !== "menu") draw();
+    else { ctx.fillStyle = "#07030f"; ctx.fillRect(0,0,W,H); }
+  }
+  if (state === "pause"){
+    ctx.fillStyle = "rgba(3,1,10,.6)"; ctx.fillRect(0,0,W,H);
+    ctx.font = "900 48px Segoe UI"; ctx.fillStyle = "#0ff"; ctx.textAlign = "center";
+    ctx.fillText("PAUSED", W/2, H/2);
+    ctx.font = "600 18px Segoe UI"; ctx.fillStyle = "#9f8fd8";
+    ctx.fillText("press P to resume", W/2, H/2+40);
+  }
+  if (state === "over"){
+    ctx.fillStyle = "rgba(3,1,10,.7)"; ctx.fillRect(0,0,W,H);
+    ctx.textAlign = "center";
+    ctx.font = "900 min(10vw,72px) Segoe UI"; ctx.fillStyle = "#ff3b5c";
+    ctx.fillText("YOU FELL", W/2, H*0.36);
+    ctx.font = "700 22px Segoe UI"; ctx.fillStyle = "#ffd76d";
+    ctx.fillText("Waves survived: " + waveNum + "   •   Kills: " + kills + "   •   Score: " + score, W/2, H*0.44);
+    ctx.font = "700 15px Segoe UI"; ctx.fillStyle = "#ffd23f";
+    ctx.fillText("The Oracle:", W/2, H*0.505);
+    ctx.fillStyle = "#cdb8ff"; ctx.font = "600 17px Segoe UI";
+    ctx.fillText(oracleGameOver(), W/2, H*0.545);
+    ctx.fillStyle = "#0ff"; ctx.font = "900 20px Segoe UI";
+    ctx.fillText("press R to rise again", W/2, H*0.62);
+  }
+  requestAnimationFrame(frame);
+}
+function oracleGameOver(){
+  return pick([
+    "Rest now, little flame. The arena remembers you.",
+    "Weak... but the weak who try again grow TITANS of will. Again!",
+    "I saw what you did out there. Mother is proud.",
+    "Every legend starts with a death screen. Reload!"]);
+}
+
+/* ================= BOOT ================================== */
+fetch("manifest.json").then(r=>r.json()).then(m=>{
+  manifest = m || manifest; loadSounds(); loadMaps();
+  buildMenu();
+}).catch(()=>{ buildMenu(); });
+requestAnimationFrame(frame);
+
+/* patched guards -------------------------------------------------- */
+function drawEnemyCount(){}
+</script>
+</body>
+</html>
