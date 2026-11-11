@@ -19,7 +19,9 @@
     -webkit-background-clip:text; background-clip:text; color:transparent;
     text-shadow:0 0 40px rgba(123,47,247,.35); }
   #subtitle { color:#b8a6e8; font-size:14px; letter-spacing:2px; margin-top:-16px; }
-  #menuL1, #menuL2 { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  #menuL1, #menuL2 { display:flex; flex-direction:column; align-items:center;
+    justify-content:center; justify-content:safe center;   /* never clip the buttons */
+    overflow-y:auto; max-height:100vh; padding:28px 14px; gap:18px; }
   /* layer-2: character select heading */
   #title2 { font-size:min(4vw,50px); font-weight:900; letter-spacing:4px;
     background:linear-gradient(90deg,#00e5ff,#7bdd8a,#ffd23f);
@@ -31,7 +33,7 @@
     transition:transform .12s, border-color .12s; }
   #backL1:hover { transform:scale(1.05); border-color:#8a6cff; }
   #heroes { display:flex; gap:22px; flex-wrap:wrap; justify-content:center; }
-  .hero-card { width:190px; border:2px solid #3c2a6b; border-radius:16px; padding:16px 14px;
+  .hero-card { width:178px; border:2px solid #3c2a6b; border-radius:16px; padding:12px 12px;
     background:linear-gradient(180deg,rgba(40,16,70,.9),rgba(12,4,26,.9)); cursor:pointer;
     transition:transform .15s, border-color .15s, box-shadow .15s; text-align:center; color:#efe8ff; }
   .hero-card:hover, .hero-card.sel { transform:translateY(-8px) scale(1.04); border-color:#0ff; box-shadow:0 0 30px rgba(0,229,255,.35); }
@@ -40,6 +42,21 @@
   .hero-card .cls { color:#8ef; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; }
   .hero-card p { font-size:11.5px; color:#a99ccb; margin-top:8px; min-height:46px; line-height:1.4; }
   .hero-card .pw { margin-top:8px; font-size:11px; color:#ffd76d; }
+  /* small screens: shrink the hero grid so ENTER THE ARENA always fits */
+  @media (max-height: 850px), (max-width: 820px) {
+    #menuL1, #menuL2 { gap:10px; padding:14px 10px; }
+    #heroes { gap:10px; }
+    .hero-card { width:136px; padding:8px 8px; border-radius:12px; }
+    .hero-card canvas { width:64px; height:64px; }
+    .hero-card h3 { font-size:15px; }
+    .hero-card p { font-size:10px; min-height:40px; margin-top:5px; }
+    .hero-card .pw { font-size:9.5px; margin-top:4px; }
+    .hero-card .cls { font-size:9px; }
+    #startBtn { padding:11px 40px; font-size:16px; }
+    #backL1 { padding:11px 22px; font-size:14px; }
+    #title2 { font-size:min(5vw,34px); }
+    #subtitle2 { font-size:11px; }
+  }
   #startBtn { padding:14px 64px; font-size:20px; font-weight:800; letter-spacing:3px; color:#06111a;
     background:linear-gradient(90deg,#00e5ff,#7b2ff7); border:none; border-radius:40px; cursor:pointer;
     box-shadow:0 0 34px rgba(0,229,255,.5); transition:transform .12s; }
@@ -148,8 +165,12 @@
     <div id="npJoinView" class="hidden">
       <p>Enter your friend's code:</p>
       <input id="npCodeIn" maxlength="6" autocomplete="off" spellcheck="false" placeholder="e.g. K7Q2X">
+      <p style="margin:10px 0 4px">Your character:</p>
+      <select id="npHeroPick" style="width:100%; padding:8px; border-radius:10px; border:2px solid #4b2f86;
+        background:#1b0b33; color:#ffe; font-weight:700; font-size:14px; cursor:pointer;"></select>
       <button id="npConnect">CONNECT 🔗</button>
-      <p class="np-small">Works on the same WiFi<br>or across the world 🌍 (internet).</p>
+      <p class="np-small">Works on any WiFi (or mobile data) — across the world 🌍.<br>
+        <b>After CONNECT, wait on the arena screen</b> — you jump in<br>the moment your friend (host) enters the fight!</p>
       <div id="npJoinStatus"></div>
     </div>
     <button id="npBack">← BACK</button>
@@ -2666,6 +2687,16 @@ npEl("npNetHost").onclick = ()=>{        // friend is on ANOTHER WiFi (internet 
   hostGame(true);
 };
 npEl("npJoin").onclick = ()=>{
+  // fill the character picker (keeps the hero the player already selected)
+  const sel = npEl("npHeroPick");
+  sel.innerHTML = "";
+  for (const [id, h] of Object.entries(HEROES)){
+    const o = document.createElement("option");
+    o.value = id; o.textContent = h.name + " — " + h.cls;
+    sel.appendChild(o);
+  }
+  sel.value = selHero;
+  sel.onchange = ()=>{ selHero = sel.value; };
   npEl("npChoice").classList.add("hidden");
   npEl("npHostView").classList.add("hidden");
   npEl("npJoinView").classList.remove("hidden");
@@ -2697,9 +2728,14 @@ function frame(now){
       ctx.fillStyle = "#07030f"; ctx.fillRect(0,0,W,H);
       ctx.textAlign = "center";
       ctx.font = "900 30px Segoe UI"; ctx.fillStyle = "#7bdd8a";
-      ctx.fillText("CALLING THROUGH THE RELAY...", W/2, H*0.40);
-      ctx.font = "700 17px Segoe UI"; ctx.fillStyle = "#9f8fd8";
-      ctx.fillText("room code: " + netCode, W/2, H*0.40 + 42);
+      ctx.fillText(netMode === "join" ? "⚔️ CONNECTED — WAITING FOR THE HOST ⚔️" : "CALLING THROUGH THE RELAY...", W/2, H*0.38);
+      const meHero = HEROES[guestHeroId];
+      ctx.font = "700 18px Segoe UI"; ctx.fillStyle = "#ffe9a8";
+      ctx.fillText("You will fight as: " + (meHero ? meHero.name.toUpperCase() : "HERO"), W/2, H*0.38 + 38);
+      ctx.font = "700 16px Segoe UI"; ctx.fillStyle = "#9f8fd8";
+      ctx.fillText("room code: " + netCode + "   ·   the battle starts the moment the HOST enters the arena", W/2, H*0.38 + 70);
+      ctx.font = "600 14px Segoe UI"; ctx.fillStyle = "#7768a8";
+      ctx.fillText("(ESC = leave the lobby)", W/2, H*0.38 + 100);
     } else if (state !== "menu") draw();
     else { ctx.fillStyle = "#07030f"; ctx.fillRect(0,0,W,H); }
   }
