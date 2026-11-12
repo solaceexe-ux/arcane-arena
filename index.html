@@ -765,7 +765,16 @@ async function hostPost(){
 }
 
 /* ---- GUEST ---- */
+let snapVerWarned = false;
 function guestTakeSnapshot(m){
+  if (m && m.s && m.s.v !== SNAP_V && !snapVerWarned){   // old cached page on one side -> loud fix instead of a freeze
+    snapVerWarned = true;
+    state = "queued"; clearNetUI();
+    showBanner("⚠ VERSION MISMATCH", "BOTH players press Ctrl+F5, then reconnect!", 6);
+    if (banner) banner.t = 6;
+    oracleChat = { who:"ORACLE", text:"Refresh (Ctrl+F5) on both screens, my heroes — old magic is colliding!", t:5 };
+    return;
+  }
   if (state === "queued"){
     state = "play"; clearNetUI();
     tutorialT = 24; saidPowerReady = false; saidUltReady = false;   // guest sees the tips too
@@ -831,6 +840,7 @@ function clearNetUI(){
 }
 
 /* ---- world snapshot ---- */
+const SNAP_V = 3;   // protocol version — a guest on an OLD page gets a loud refresh warning
 function packPlayer(pl, role){
   const h = pl.hero || hero;
   return { x: Math.round(pl.x), y: Math.round(pl.y), hp: Math.round(pl.hp), m: pl.maxHp,
@@ -839,7 +849,7 @@ function packPlayer(pl, role){
     ut: pl.ultT > 0 ? 1 : 0, sd: pl.shieldT > 0 ? 1 : 0, st2: pl.stunT > 0 ? 1 : 0 };
 }
 function buildSnap(){
-  const s = { w: waveNum, st: waveState, wt: waveTimer, sc: score, k: kills,
+  const s = { v: SNAP_V, w: waveNum, st: waveState, wt: waveTimer, sc: score, k: kills,
     bn: banner ? { t: banner.text, s: banner.sub || "", sm: banner.small ? 1 : 0, tt: banner.t } : null,
     p: [ packPlayer(player, "host") ],
     e: enemies.map(e=>({ x: Math.round(e.x), y: Math.round(e.y), r: e.r, k: e.kind,
@@ -864,11 +874,13 @@ function enemyStub(kind, x, y){
     slow: 0, maxHp: 1, hp: 1 };
 }
 function guestApply(s){
-  waveNum = s.w; waveState = s.st; waveTimer = s.wt; score = s.sc; kills = s.k;
+  s = s || {};
+  waveNum = s.w || waveNum || 1; waveState = s.st || waveState || "calm"; waveTimer = s.wt || 0;
+  score = s.sc || 0; kills = s.k || 0;
   banner = s.bn ? { text: s.bn.t, sub: s.bn.s, small: !!s.bn.sm, t: Math.max(0.3, s.bn.tt) } : banner;
   const me = player && player.role === "guest" ? player : null;
   let myP = null, other = null;
-  for (const p of s.p){
+  for (const p of (s.p || [])){
     const full = { x: p.x, y: p.y, r: 22, hp: p.hp, maxHp: p.m, dir: p.d, bubble: p.bu ? { text: p.bu, t: 2.4 } : null,
       powerT: p.pt, boost: p.bst ? 9 : 0, heroId: p.hi, role: p.role, fireT: 0, inv: 0, bob: (me && me.bob) || 0,
       ultT: p.ut ? 1.2 : 0, ultCD: (me && me.ultCD) || 0, shieldT: p.sd ? 1.2 : 0, stunT: p.st2 ? 0.35 : 0,
@@ -891,15 +903,16 @@ function guestApply(s){
     remotePlayerLocal.tag = "P1 (HOST)";
     getHeroPhotoImg(remotePlayerLocal.heroId, im=>{ remotePlayerLocal.photoImg = im; });
   }
-  enemies = s.e.map(o=>{ const e = enemyStub(o.k, o.x, o.y);
+  enemies = (s.e || []).map(o=>{ const e = enemyStub(o.k, o.x, o.y);
     e.r = o.r; e.col = o.c; e.hp = o.hp; e.maxHp = o.m; e.spawnT = o.sn ? 0.5 : 0;
     e.bubble = o.bu ? { text: o.bu, t: 2.4 } : null; return e; });
-  bullets = s.b.map(o=>({ x:o.x, y:o.y, r:6, col:o.c, vx:0, vy:0, life:1 }));
-  ebullets = s.eb.map(o=>({ x:o.x, y:o.y, r:8, col:o.c, vx:0, vy:0, life:1 }));
-  pickups = s.pk.map(o=>({ x:o.x, y:o.y, kind:o.k, t:1, life: 9 }));
-  rings = s.fx.rz || [];
-  blizzard = s.fx.vz; tornado = s.fx.tg; fog = s.fx.fg;
-  beams = s.fx.bm || []; bolts = s.fx.bt || [];
+  bullets = (s.b || []).map(o=>({ x:o.x, y:o.y, r:6, col:o.c, vx:0, vy:0, life:1 }));
+  ebullets = (s.eb || []).map(o=>({ x:o.x, y:o.y, r:8, col:o.c, vx:0, vy:0, life:1 }));
+  pickups = (s.pk || []).map(o=>({ x:o.x, y:o.y, kind:o.k, t:1, life: 9 }));
+  const fx = s.fx || {};
+  rings = fx.rz || [];
+  blizzard = fx.vz; tornado = fx.tg; fog = fx.fg;
+  beams = fx.bm || []; bolts = fx.bt || [];
   if (!props.length) buildProps();
 }
 function heroIdOfPlayer(pl){ return pl.heroId || "blaze"; }
@@ -1088,11 +1101,13 @@ function update(dt){
       player.powerT = (player.hero && player.hero.power.cd) || 6;
       netPostGuest({ type:"power", id: joinId, ax: Math.round(aim.x), ay: Math.round(aim.y) });
     }
-    cam.tx = clamp(((player.x/WORLD_W) - 0.5) * 130 + (aim.x - player.x)/WORLD_W * 100, -130, 130);
-    cam.ty = clamp(((player.y/WORLD_H) - 0.55) * 70 + (aim.y - player.y)/WORLD_H * 50, -45, 80);
-    cam.x += (cam.tx - cam.x)*Math.min(1, dt*4);
-    cam.y += (cam.ty - cam.y)*Math.min(1, dt*4);
-    player.bob += dt*9;
+    if (player){
+      cam.tx = clamp(((player.x/WORLD_W) - 0.5) * 130 + (aim.x - player.x)/WORLD_W * 100, -130, 130);
+      cam.ty = clamp(((player.y/WORLD_H) - 0.55) * 70 + (aim.y - player.y)/WORLD_H * 50, -45, 80);
+      cam.x += (cam.tx - cam.x)*Math.min(1, dt*4);
+      cam.y += (cam.ty - cam.y)*Math.min(1, dt*4);
+      player.bob += dt*9;
+    }
     return;
   }
 
@@ -2719,9 +2734,20 @@ npEl("helpBtn").onclick = ()=>{ npEl("helpPanel").classList.remove("hidden"); };
 npEl("hpClose").onclick = ()=>{ npEl("helpPanel").classList.add("hidden"); };
 
 /* ================= MAIN LOOP ============================= */
-let last = performance.now();
+let last = performance.now(), loopErrT = 0;
 function frame(now){
   const dt = Math.min(0.05, (now-last)/1000); last = now;
+  /* safety net: a bug in one frame can NEVER freeze the game any more */
+  try { tickGame(dt); }
+  catch (err){
+    console.error("game frame error (kept alive):", err);
+    if (loopErrT <= 0){ floatText(player ? player.x : WORLD_W/2, player ? player.y - 40 : WORLD_H/2, "⚠ hiccup — recovered", "#ffd23f"); }
+    loopErrT = 1;
+  }
+  if (loopErrT > 0) loopErrT -= dt;
+  requestAnimationFrame(frame);
+}
+function tickGame(dt){
   if (state !== "menu"){
     update(dt);
     if (state === "queued"){
@@ -2760,7 +2786,6 @@ function frame(now){
     ctx.fillStyle = "#0ff"; ctx.font = "900 20px Segoe UI";
     ctx.fillText("press R to rise again", W/2, H*0.62);
   }
-  requestAnimationFrame(frame);
 }
 function oracleGameOver(){
   return pick([
