@@ -122,7 +122,7 @@
       <button id="helpBtn">HOW TO PLAY 📖</button>
     </div>
     <div id="controls">
-      <b>WASD / Arrows</b> move &nbsp;·&nbsp; <b>Mouse</b> aim &nbsp;·&nbsp; <b>Click / Hold</b> shoot &nbsp;·&nbsp; <b>SPACE</b> superpower &nbsp;·&nbsp; <b>E</b> ★SKILL (every 4s)
+      <b>WASD / Arrows</b> move &nbsp;·&nbsp; <b>Mouse</b> aim &nbsp;·&nbsp; <b>Click / Hold</b> shoot &nbsp;·&nbsp; <b>SPACE</b> superpower &nbsp;·&nbsp; <b>E</b> ★SKILL (every 4s) &nbsp;·&nbsp; <b>T</b> 😊 emote (kiss / mog / flex...)
       &nbsp;·&nbsp; <b>ESC / ✕</b> exit &nbsp;·&nbsp; <b>P</b> pause &nbsp;·&nbsp; <b>M</b> music &nbsp;·&nbsp; <b>R</b> restart
     </div>
   </div>
@@ -293,7 +293,8 @@ const SKIN_CROP = {
   gale:  { focusX: 0.68, focusY: 0.42, zoom: 0.55 },   // Doctor Doom (portrait, right side)
   sol:   { focusX: 0.55, focusY: 0.32, zoom: 0.55 },   // Homelander (portrait)
   terra: { focusX: 0.50, focusY: 0.30, zoom: 0.62 },   // Superman (portrait)
-  venom: { focusX: 0.45, focusY: 0.45, zoom: 0.75 } }; // Venom (wide shot)
+  venom: { focusX: 0.45, focusY: 0.45, zoom: 0.75 },  // Venom (wide shot)
+  pirate:{ focusX: 0.50, focusY: 0.15, zoom: 0.42 } }; // Space Pirate Captain (full body, face high)
 function skinCrop(id){ return SKIN_CROP[id] || SKIN_PHOTO; }
 /* resolves a hero's picture file (handles the double .png.jpeg names and
    the "plaze"/"tera" spellings) or falls back to your player face.
@@ -345,7 +346,7 @@ function loadMaps(){
   }
 }
 const floorCache = new Map();
-function mapIndexFor(w){ return mapImgs.length ? (w - 1 + mapImgs.length * 99) % mapImgs.length : -1; }
+function mapIndexFor(w){ return mapImgs.length ? levelDef(levelOf(w)).map % mapImgs.length : -1; }
 function getFloor(wave){
   const idx = mapIndexFor(wave);
   if (idx < 0 || !mapImgs[idx]) return null;
@@ -527,6 +528,17 @@ const HEROES = {
     wave:["Careful where you breathe.","Fog forecast: deadly.","Time to infest."],
     boss:["His lungs are SO big. Perfect.","Cough it up, big guy!"],
     ult:{ name:"PLAGUE SOVEREIGN", line:"BREATHE... WHILE YOU STILL CAN!" } },
+  pirate: {
+    name:"Pirate", cls:"Void Corsair · Space Pirate Captain", color:"#e04a3f", color2:"#ffd9a0",
+    desc:"Orbital corsair. Plasma broadside bombs an area; his armada barrage shreds waves.",
+    power:{ name:"PLASMA BROADSIDE", cd:9 }, hp:115, speed:350, rate:0.21, dmg:24, bulletSpeed:800, spread:0.07,
+    theme:"#ff6b4a", weapon:"blaster",
+    intro:["The void seas belong to me.","All hands, abandon hope!"],
+    joy:["Plundered!","Broadside delivered!","Booty secured."],
+    hurt:["They boarded me!","My hull is cracked!"],
+    wave:["New targets on the starboard side.","Raise the colors. Fire at will.","The hunt continues."],
+    boss:["A kraken? I've slain bigger.","Every titan has a treasure. It's mine now."],
+    ult:{ name:"VOID ARMADA", line:"FIRE EVERYTHING, LAD!!" } },
 };
 const ORACLE = {
   talk:["The waves grow hungrier. Stay sharp.","Crystals hum... something big approaches.","Mother always said: keep moving.",
@@ -741,6 +753,10 @@ function hostHandle(m){
     remoteSeen = Date.now();
     startUltimate(remotePlayer);
   }
+  if (d.emote && remotePlayer){               // friend's emote (kiss / mog / ...)
+    remoteSeen = Date.now();
+    startEmote(remotePlayer);                 // cycles to the next emote host-side
+  }
   if (d.left){
     if (remotePlayer && d.left.id && !processedJoins.has("L"+d.left.id)){
       processedJoins.add("L"+d.left.id);
@@ -846,7 +862,8 @@ function packPlayer(pl, role){
   return { x: Math.round(pl.x), y: Math.round(pl.y), hp: Math.round(pl.hp), m: pl.maxHp,
     d: pl.dir, pt: Math.round(pl.powerT), pd: h ? h.power.cd : 8, role, hi: pl.heroId || role,
     bu: pl.bubble ? pl.bubble.text : "", bst: pl.boost > 0 ? 1 : 0,
-    ut: pl.ultT > 0 ? 1 : 0, sd: pl.shieldT > 0 ? 1 : 0, st2: pl.stunT > 0 ? 1 : 0 };
+    ut: pl.ultT > 0 ? 1 : 0, sd: pl.shieldT > 0 ? 1 : 0, st2: pl.stunT > 0 ? 1 : 0,
+    em: pl.emoteT > 0 ? pl.emoteId : -1, et: pl.emoteT > 0 ? +pl.emoteT.toFixed(2) : 0 };
 }
 function buildSnap(){
   const s = { v: SNAP_V, w: waveNum, st: waveState, wt: waveTimer, sc: score, k: kills,
@@ -858,6 +875,7 @@ function buildSnap(){
     b:  bullets.map(b=>({ x: Math.round(b.x), y: Math.round(b.y), c: b.col })),
     eb: ebullets.map(b=>({ x: Math.round(b.x), y: Math.round(b.y), c: b.col })),
     pk: pickups.map(k=>({ x: Math.round(k.x), y: Math.round(k.y), k: k.kind })),
+    fp: firePools.map(f=>({ x: Math.round(f.x), y: Math.round(f.y), r: Math.round(f.r), t: Math.round(f.t) })),
     fx: { rz: rings.map(r=>({ x: Math.round(r.x), y: Math.round(r.y), r: Math.round(r.r), t: r.t, c: r.col })),
           vz: blizzard ? { x: Math.round(blizzard.x), y: Math.round(blizzard.y), r: blizzard.r, t: blizzard.t } : null,
           tg: tornado ? { x: Math.round(tornado.x), y: Math.round(tornado.y), t: tornado.t, sp: tornado.spin } : null,
@@ -869,7 +887,11 @@ function buildSnap(){
 }
 function enemyStub(kind, x, y){
   const base = { crawler:{r:18,col:"#ff4d6d"}, shooter:{r:19,col:"#c05cff"},
-                 tank:{r:30,col:"#4dd06a"}, boss:{r:56,col:"#ff2b2b"} }[kind] || {r:20,col:"#ff4d6d"};
+                 tank:{r:30,col:"#4dd06a"}, boss:{r:56,col:"#ff2b2b"},
+                 wraith:{r:16,col:"#a0f0e0"}, bomber:{r:15,col:"#ff9d2f"},
+                 medic:{r:17,col:"#63ff9b"}, splitter:{r:22,col:"#ff6bd6"},
+                 mini:{r:10,col:"#ff9de4"}, frostcaster:{r:19,col:"#9fd8ff"},
+                 shielder:{r:26,col:"#ffd23f"} }[kind] || {r:20,col:"#ff4d6d"};
   return { ...base, kind, x, y, bubble: null, hurtT: 0, sayT: 99, dead: false, spawnT: 0, dir: 1,
     slow: 0, maxHp: 1, hp: 1 };
 }
@@ -884,7 +906,9 @@ function guestApply(s){
     const full = { x: p.x, y: p.y, r: 22, hp: p.hp, maxHp: p.m, dir: p.d, bubble: p.bu ? { text: p.bu, t: 2.4 } : null,
       powerT: p.pt, boost: p.bst ? 9 : 0, heroId: p.hi, role: p.role, fireT: 0, inv: 0, bob: (me && me.bob) || 0,
       ultT: p.ut ? 1.2 : 0, ultCD: (me && me.ultCD) || 0, shieldT: p.sd ? 1.2 : 0, stunT: p.st2 ? 0.35 : 0,
-      ultHintT: 0 };
+      ultHintT: 0, slowT: (me && me.slowT) || 0,
+      emoteT: (p.em !== undefined && p.em >= 0) ? (p.et || 0.2) : 0, emoteId: (p.em !== undefined && p.em >= 0) ? p.em : -1,
+      emoteCd: (p.em !== undefined && p.em >= 0) ? 0.5 : 0 };
     const h = HEROES[p.hi] || HEROES.blaze;
     if (h) full.hero = h;
     if (p.role === "guest") myP = full; else other = full;
@@ -909,6 +933,7 @@ function guestApply(s){
   bullets = (s.b || []).map(o=>({ x:o.x, y:o.y, r:6, col:o.c, vx:0, vy:0, life:1 }));
   ebullets = (s.eb || []).map(o=>({ x:o.x, y:o.y, r:8, col:o.c, vx:0, vy:0, life:1 }));
   pickups = (s.pk || []).map(o=>({ x:o.x, y:o.y, kind:o.k, t:1, life: 9 }));
+  firePools = (s.fp || []).map(o=>({ x:o.x, y:o.y, r:o.r, t:o.t }));   // 🔥 synced fire pools
   const fx = s.fx || {};
   rings = fx.rz || [];
   blizzard = fx.vz; tornado = fx.tg; fog = fx.fg;
@@ -955,7 +980,8 @@ function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
 function makePlayer(h){
   return { x: WORLD_W/2, y: WORLD_H*0.75, r: 22, hp: h.hp, maxHp: h.hp,
     hero: h, fireT: 0, powerT: 0, bob: 0, bubble:null, dir: 1, inv: 1.2, boost: 0,
-    ultT: 0, ultCD: 0, shieldT: 0, stunT: 0, ultHintT: 0 };
+    ultT: 0, ultCD: 0, shieldT: 0, stunT: 0, ultHintT: 0, slowT: 0,
+    emoteT: 0, emoteId: -1, emoteCd: 0 };
 }
 function startGame(){
   hero = HEROES[selHero];
@@ -990,28 +1016,64 @@ function buildProps(){
   props = [];
 }
 
+/* ================= LEVELS ================================= */
+/* 5 waves per level — wave 5/10/15 is that level's FINAL BOSS. Slay it and
+   the next level opens: a new map + brand-new enemies with distinct powers. */
+const LEVELS = [
+  { name:"GREEN ARENA",    map:0, boss:"titan",       bossName:"THE TITAN",
+    pool:["crawler","shooter","tank"],
+    intro:"Level 1 — crawlers, gunners, tanks. Warm-up round." },
+  { name:"THE COURTYARD",  map:1, boss:"necromancer", bossName:"THE NECROMANCER",
+    pool:["wraith","bomber","medic","shooter"],
+    intro:"Level 2 — phasing ghosts, live bombs and HEALERS?! This yard is cursed." },
+  { name:"THE CAGE COURT", map:2, boss:"pyrolord",    bossName:"THE PYRO LORD",
+    pool:["splitter","frostcaster","shielder","tank"],
+    intro:"Level 3 — splitters, ice mages, shield beasts. Hoop or die." },
+];
+function levelOf(w){ return Math.max(1, Math.ceil(w/5)); }
+function levelDef(l){
+  if (l <= LEVELS.length) return LEVELS[l-1];
+  const cycle = ["titan","necromancer","pyrolord"][(l-1)%3];
+  return { name:"NIGHTMARE " + (l - LEVELS.length + 1), map:(l-1)%3,
+    boss:cycle, bossName:{ titan:"THE TITAN", necromancer:"THE NECROMANCER", pyrolord:"THE PYRO LORD" }[cycle],
+    pool:["crawler","shooter","tank","wraith","bomber","medic","splitter","frostcaster","shielder"] };
+}
+function levelMul(){ return 1 + (levelOf(waveNum)-1)*0.5; }   // enemies grow tougher each level
+
 /* ================= WAVES ================================= */
 function startWave(){
   waveNum++;
+  const lv = levelOf(waveNum), L = levelDef(lv);
+  const newLevel = (waveNum-1) % 5 === 0;
+  const isBoss = waveNum % 5 === 0;
   waveState = "spawning";
   saidLowHP = false;
-  const isBoss = waveNum % 5 === 0;
-  showBanner(isBoss ? "☠ BOSS WAVE " + waveNum + " ☠" : "WAVE " + waveNum,
-             isBoss ? "A TITAN AWAKENS" : waveNum%2 ? "Hold the arena!" : "They keep coming...");
-  if (mapImgs.length) toast("🗺 NEW MAP: " + mapImgs[mapIndexFor(waveNum)].name.toUpperCase());
+  showBanner(isBoss ? "☠ FINAL BOSS: " + L.bossName + " ☠"
+                    : newLevel ? "🏁 LEVEL " + lv + " — " + L.name.toUpperCase()
+                    : "WAVE " + waveNum + " · LEVEL " + lv,
+             isBoss ? "SLAY IT TO UNLOCK THE NEXT LEVEL!"
+             : newLevel ? "new enemies with new powers roam here..."
+             : "They keep coming...");
+  if (mapImgs.length && newLevel) toast("🗺 NEW LEVEL MAP: " + L.name.toUpperCase());
   buildProps();
   play(isBoss ? "boss_roar" : "wave_start");
   shake = isBoss ? 14 : 6;
 
   if (isBoss){
     spawnQueue = 1; spawnTimer = 1.0; bossIncoming = true;
-    if (bossIncoming){ // pre-boss banter
-      say(player, hero.boss[Math.floor(Math.random()*hero.boss.length)], 3);
-      oracleChat = { who:"ORACLE", text: pick(["It's a Titan! Attack the glowing core!","A Titan wakes. Aim for the eyes... and pray.","This one eldest of the dark. Dance, hero!"]), t: 4.5 };
-    }
+    say(player, hero.boss[Math.floor(Math.random()*hero.boss.length)], 3);
+    oracleChat = { who:"ORACLE", text: pick([
+      "THE FINAL BOSS! Slay it and the next level opens!",
+      L.bossName + " guards the gate to Level " + (lv+1) + "!",
+      "This one is the level's heart. Kill it — or stay here forever."]), t: 4.5 };
   } else {
     bossIncoming = false;
-    if (waveNum > 1){ say(player, pick(hero.wave), 2.6); if (Math.random()<0.4) oracleChat = { who:"ORACLE", text: pick(ORACLE.talk), t: 4 }; }
+    if (newLevel){
+      say(player, L.intro, 3);
+      if (lv > 1) oracleChat = { who:"ORACLE", text:"New level, new monsters. Their powers are DIFFERENT here — learn fast, heroes!", t: 4.5 };
+    } else {
+      if (waveNum > 1){ say(player, pick(hero.wave), 2.6); if (Math.random()<0.4) oracleChat = { who:"ORACLE", text: pick(ORACLE.talk), t: 4 }; }
+    }
     spawnQueue = Math.floor(4 + waveNum*2.3 + waveNum*waveNum*0.05);
     spawnTimer = 0.6;
   }
@@ -1019,6 +1081,36 @@ function startWave(){
 }
 let bossIncoming = false;
 const pick = a => a[Math.floor(Math.random()*a.length)];
+/* map border shortcuts (used by teleporting bosses) */
+function Bx0(){ return mapBorder().x0; } function Bx1(){ return mapBorder().x1; }
+function By0(){ return mapBorder().y0; } function By1(){ return mapBorder().y1; }
+/* 💣 / ☠ explosions: hurt heroes AND enemies inside the radius */
+function explodeEnemy(e, radius, dmg){
+  novaRing(e.x, e.y, "#ff9d2f");
+  spawnParticles(e.x, e.y, 30, "#ff9d2f", 260, 0.7);
+  play("explosion"); shake = Math.max(shake, 10);
+  for (const t of [player, ...(netMode==="host"&&remotePlayer?[remotePlayer]:[])]){
+    if (t && t.hp > 0 && dist(t, e) < radius && t.inv <= 0) damageEnt(t, dmg);
+  }
+  for (const o of enemies){
+    if (o === e || o.dead || o.spawnT > 0) continue;
+    if (dist(o, e) < radius) hurtEnemy(o, dmg*0.8, false);
+  }
+}
+/* 🔥 pyrolord fire pools — standing in them burns the heroes */
+let firePools = [];
+function updateFirePools(dt){
+  for (const f of firePools){
+    f.t -= dt;
+    for (const t of [player, ...(netMode==="host"&&remotePlayer?[remotePlayer]:[])]){
+      if (t && t.hp > 0 && dist(t, f) < f.r && t.inv <= 0){
+        damageEnt(t, 14*dt*60/60);   // slow burn: ~14 dps but respects inv frames
+        if (Math.random() < dt*3) spawnParticles(t.x, t.y, 1, "#ff7a2f", 60, 0.4);
+      }
+    }
+  }
+  firePools = firePools.filter(f=>f.t > 0);
+}
 
 function spawnEnemy(){
   const side = Math.floor(rand(0,4));
@@ -1033,11 +1125,14 @@ function spawnEnemy(){
 
   let type = "crawler";
   const isBoss = waveNum % 5 === 0;
+  const L = levelDef(levelOf(waveNum));
   if (bossIncoming){ type = (spawnQueue===1) ? "boss" : (Math.random()<0.5?"crawler":"shooter"); }
-  else if (waveNum>=2 && Math.random()<0.28) type = "shooter";
-  else if (waveNum>=3 && Math.random()<0.2) type = "tank";
+  else {
+    // pool comes from the CURRENT LEVEL — every level has its own monster roster
+    type = L.pool[Math.floor(Math.random()*L.pool.length)];
+  }
 
-  const scale = 1 + waveNum*0.09;
+  const scale = (1 + waveNum*0.09) * levelMul();
   const e = { x, y, r: 20, bubble:null, hurtT:0, sayT: rand(1,6), dead:false, spawnT: 0.6, dir:1, ax:0, ay:0 };
   if (type === "crawler"){
     Object.assign(e, { kind:"crawler", hp: 30*scale, maxHp: 30*scale, speed: rand(120,175)*Math.min(1+waveNum*0.03,1.6), r:18, col:"#ff4d6d", dmg:12, spawnT:0.5 });
@@ -1045,8 +1140,31 @@ function spawnEnemy(){
     Object.assign(e, { kind:"shooter", hp: 38*scale, maxHp: 38*scale, speed: rand(80,120), r:19, col:"#c05cff", dmg:14, fireT: rand(1,2.5), spawnT:0.5 });
   } else if (type === "tank"){
     Object.assign(e, { kind:"tank", hp: 120*scale, maxHp: 120*scale, speed: rand(45,65), r:30, col:"#4dd06a", dmg:22, spawnT:0.7 });
-  } else { // BOSS
-    Object.assign(e, { kind:"boss", hp: 900 + waveNum*180, maxHp: 900 + waveNum*180, speed: 85, r:56, col:"#ff2b2b", dmg:34,
+  } else if (type === "wraith"){              // 👻 LEVEL 2: phases invisible, blinks at you
+    Object.assign(e, { kind:"wraith", hp: 26*scale, maxHp: 26*scale, speed: rand(150,190), r:16, col:"#a0f0e0", dmg:10,
+      phaseT: rand(2,4), visT: rand(2.5,4), spawnT:0.5 });
+  } else if (type === "bomber"){              // 💣 LEVEL 2: rushes you, then EXPLODES
+    Object.assign(e, { kind:"bomber", hp: 24*scale, maxHp: 24*scale, speed: rand(185,215), r:15, col:"#ff9d2f", dmg:10, fuseT: -1, spawnT:0.5 });
+  } else if (type === "medic"){               // 💚 LEVEL 2: heals other enemies nearby
+    Object.assign(e, { kind:"medic", hp: 34*scale, maxHp: 34*scale, speed: rand(60,85), r:17, col:"#63ff9b", dmg:8, healT: 1, spawnT:0.5 });
+  } else if (type === "splitter"){            // 🔮 LEVEL 3: splits into TWO minis on death
+    Object.assign(e, { kind:"splitter", hp: 55*scale, maxHp: 55*scale, speed: rand(85,110), r:22, col:"#ff6bd6", dmg:14, canSplit: true, spawnT:0.5 });
+  } else if (type === "mini"){                // splitter's babies
+    Object.assign(e, { kind:"mini", hp: 14*scale, maxHp: 14*scale, speed: rand(185,220), r:10, col:"#ff9de4", dmg:8, spawnT:0.3 });
+  } else if (type === "frostcaster"){         // ❄ LEVEL 3: ranged, chilling shards SLOW you
+    Object.assign(e, { kind:"frostcaster", hp: 40*scale, maxHp: 40*scale, speed: rand(70,100), r:19, col:"#9fd8ff", dmg:12, fireT: rand(1.2,2.2), spawnT:0.5 });
+  } else if (type === "shielder"){            // 🛡 LEVEL 3: frontal shield eats most damage — flank it!
+    Object.assign(e, { kind:"shielder", hp: 115*scale, maxHp: 115*scale, speed: rand(48,68), r:26, col:"#ffd23f", dmg:20, faceAng: Math.PI, spawnT:0.7 });
+  } else if (type === "boss" && L.boss === "necromancer"){   // ☠ LEVEL 2 BOSS: summons + triple poison orbs
+    Object.assign(e, { kind:"boss", bossKind:"necromancer", hp: 1000 + waveNum*170, maxHp: 1000 + waveNum*170,
+      speed: 75, r:52, col:"#7b2ff7", dmg:30, fireT: 2.5, summonT: 4, tpT: 6, spawnT: 1.2 });
+    say(e, "RISE, MY MINIONS!", 3.5);
+  } else if (type === "boss" && L.boss === "pyrolord"){      // 🔥 LEVEL 3 BOSS: fire pools + flame bursts
+    Object.assign(e, { kind:"boss", bossKind:"pyrolord", hp: 1150 + waveNum*170, maxHp: 1150 + waveNum*170,
+      speed: 82, r:56, col:"#ff7a2f", dmg:34, fireT: 2, poolT: 2.5, chargeT: 6, phase: 0, spawnT: 1.2 });
+    say(e, "THE COURT BURNS TONIGHT!", 3.5);
+  } else { // BOSS — Level 1 / cycle TITAN
+    Object.assign(e, { kind:"boss", bossKind:"titan", hp: 900 + waveNum*180, maxHp: 900 + waveNum*180, speed: 85, r:56, col:"#ff2b2b", dmg:34,
       fireT: 2, chargeT: 5, phase: 0, spawnT: 1.2 });
     say(e, pick(BOSS_LINES), 3.5);
   }
@@ -1080,6 +1198,8 @@ function update(dt){
       // local timers survive between snapshots
       player.ultT = Math.max(0, player.ultT - dt); player.ultCD = Math.max(0, player.ultCD - dt);
       player.shieldT = Math.max(0, player.shieldT - dt); player.stunT = Math.max(0, player.stunT - dt);
+      player.slowT = Math.max(0, (player.slowT||0) - dt);
+      player.emoteT = Math.max(0, (player.emoteT||0) - dt); player.emoteCd = Math.max(0, (player.emoteCd||0) - dt);
       // ★ CHARACTER SKILL: usable any time, recharges every 4 seconds
       if (keys.KeyE && player.stunT <= 0 && player.ultT <= 0 && player.ultCD <= 0 && player.hp > 0){
         player.ultT = ULT_DUR; player.ultCD = ULT_CD; player.shieldT = ULT_SHIELD;
@@ -1100,6 +1220,10 @@ function update(dt){
     if (keys.Space && player && player.powerT <= 0 && player.stunT <= 0){
       player.powerT = (player.hero && player.hero.power.cd) || 6;
       netPostGuest({ type:"power", id: joinId, ax: Math.round(aim.x), ay: Math.round(aim.y) });
+    }
+    if (keys.KeyT && player && (player.emoteCd||0) <= 0 && player.hp > 0){   // 😊 guest emote — host performs it
+      player.emoteCd = EMOTE_CD;
+      netPostGuest({ type:"emote", id: joinId });
     }
     if (player){
       cam.tx = clamp(((player.x/WORLD_W) - 0.5) * 130 + (aim.x - player.x)/WORLD_W * 100, -130, 130);
@@ -1147,9 +1271,12 @@ function update(dt){
   if (keys.KeyS || keys.ArrowDown)  dy += 1;
   if (p.stunT > 0){
     p.stunT -= dt;    // frozen: the other hero is playing their GREAT SUPER POWER
+  } else if (p.emoteT > 0){
+    // 🎬 emoting: strike the pose, movement locked like BGMI
   } else if (dx || dy){
     const l = Math.hypot(dx,dy); dx/=l; dy/=l;
-    p.x += dx * h.speed * dt; p.y += dy * h.speed * dt;
+    const sp = h.speed * (p.slowT > 0 ? 0.6 : 1);    // ❄ frostcaster shards chill you
+    p.x += dx * sp * dt; p.y += dy * sp * dt;
     if (dx) p.dir = dx > 0 ? 1 : -1;
     // footstep dust
     if (Math.random() < dt*14) spawnParticles(p.x, p.y+14, 1, "#7b2ff7", 30, 0.4);
@@ -1163,10 +1290,13 @@ function update(dt){
   p.ultT = Math.max(0, p.ultT - dt); p.ultCD = Math.max(0, p.ultCD - dt);
   p.shieldT = Math.max(0, p.shieldT - dt); p.stunT = Math.max(0, p.stunT - dt);
   p.ultHintT = Math.max(0, p.ultHintT - dt);
+  p.slowT = Math.max(0, p.slowT - dt);
+  p.emoteT = Math.max(0, p.emoteT - dt); p.emoteCd = Math.max(0, (p.emoteCd||0) - dt);
   updateBubble(p, dt);
   aim = getAim();
   if (state==="play" && keys.Space && p.stunT <= 0) usePower();
   if (state==="play" && keys.KeyE) tryUltimate(player);
+  if (state==="play" && keys.KeyT && p.emoteCd <= 0 && p.hp > 0) startEmote(player);   // 😊 emote!
 
   /* ---- player shooting ---- */
   if (p.stunT <= 0) tryFire(player, hero, aim);
@@ -1178,7 +1308,9 @@ function update(dt){
     rp.inv = Math.max(0, rp.inv - dt); rp.boost = Math.max(0, rp.boost - dt);
     rp.ultT = Math.max(0, rp.ultT - dt); rp.ultCD = Math.max(0, rp.ultCD - dt);
     rp.shieldT = Math.max(0, rp.shieldT - dt); rp.stunT = Math.max(0, rp.stunT - dt);
-    if (rp.stunT <= 0 && (rp.mvx || rp.mvy)){        // guest's stick input drives the friend
+    rp.slowT = Math.max(0, (rp.slowT||0) - dt);
+    rp.emoteT = Math.max(0, (rp.emoteT||0) - dt); rp.emoteCd = Math.max(0, (rp.emoteCd||0) - dt);
+    if (rp.stunT <= 0 && rp.emoteT <= 0 && (rp.mvx || rp.mvy)){        // guest's stick input drives the friend (locked while emoting)
       const l = Math.hypot(rp.mvx, rp.mvy) || 1;
       rp.x += rp.mvx/l * rp.hero.speed * dt; rp.y += rp.mvy/l * rp.hero.speed * dt;
       if (rp.mvx) rp.dir = rp.mvx > 0 ? 1 : -1;
@@ -1207,6 +1339,53 @@ function update(dt){
 
     if (e.kind === "crawler"){
       e.x += Math.cos(ang) * e.speed * sf * dt; e.y += Math.sin(ang) * e.speed * sf * dt;
+    } else if (e.kind === "wraith"){            // 👻 phase: invisible & fast, then BLINKS at you
+      e.visT -= dt;
+      if (e.visT <= 0){ e.phaseT = 1.6; e.visT = rand(3,4.5); }
+      if (e.phaseT > 0){
+        e.phaseT -= dt;
+        e.x += Math.cos(ang) * e.speed * 1.7 * sf * dt; e.y += Math.sin(ang) * e.speed * 1.7 * sf * dt;
+        if (e.phaseT <= 0 && d > 120){          // blink right next to the hero
+          spawnParticles(e.x, e.y, 10, "#a0f0e0", 130, 0.5);
+          e.x = tgt.x + rand(-110,110); e.y = tgt.y + rand(-110,110);
+          spawnParticles(e.x, e.y, 10, "#a0f0e0", 130, 0.5);
+        }
+      } else {
+        e.x += Math.cos(ang) * e.speed * sf * dt; e.y += Math.sin(ang) * e.speed * sf * dt;
+      }
+    } else if (e.kind === "bomber"){            // 💣 rush + fuse + EXPLODE
+      e.x += Math.cos(ang) * e.speed * sf * dt; e.y += Math.sin(ang) * e.speed * sf * dt;
+      if (e.fuseT < 0 && d < 120){ e.fuseT = 0.8; say(e, "TICK TICK!", 1); }
+      if (e.fuseT >= 0){
+        e.fuseT -= dt;
+        if (e.fuseT <= 0){ e.fuseT = -1; hurtEnemy(e, 99999); }   // dies -> 💣 blast (hurtEnemy handles the boom)
+      }
+    } else if (e.kind === "medic"){             // 💚 stays back and HEALS allies
+      const keep = 260;
+      if (d < keep - 50){ e.x -= Math.cos(ang)*e.speed*sf*dt; e.y -= Math.sin(ang)*e.speed*sf*dt; }
+      e.healT -= dt;
+      if (e.healT <= 0){ e.healT = 1;
+        for (const a of enemies){
+          if (a === e || a.dead || a.spawnT > 0 || a.hp >= a.maxHp) continue;
+          if (dist(a, e) < 230){ a.hp = Math.min(a.maxHp, a.hp + a.maxHp*0.06); e.healing = 0.4; }
+        }
+      }
+      e.healing = Math.max(0, (e.healing||0) - dt);
+    } else if (e.kind === "splitter" || e.kind === "mini"){
+      e.x += Math.cos(ang) * e.speed * sf * dt; e.y += Math.sin(ang) * e.speed * sf * dt;
+    } else if (e.kind === "frostcaster"){       // ❄ ranged chilling shards
+      const keep = 340;
+      if (d > keep + 60){ e.x += Math.cos(ang)*e.speed*sf*dt; e.y += Math.sin(ang)*e.speed*sf*dt; }
+      else if (d < keep - 60){ e.x -= Math.cos(ang)*e.speed*sf*dt; e.y -= Math.sin(ang)*e.speed*sf*dt; }
+      e.fireT -= dt;
+      if (e.fireT <= 0){ e.fireT = rand(1.8, 2.8);
+        const ang0 = Math.atan2(tgt.y - e.y, tgt.x - e.x);
+        const eb = fireEbullet(e.x, e.y-10, Math.cos(ang0)*400, Math.sin(ang0)*400, 8, e.dmg, "#bfe8ff", 3);
+        if (eb) eb.chill = true;                // ❄ SLOWS the hero on hit
+      }
+    } else if (e.kind === "shielder"){          // 🛡 walks at you behind its golden shield
+      e.faceAng = ang;                          // shield faces the hero — bullets from the front barely hurt it
+      e.x += Math.cos(ang) * e.speed * sf * dt; e.y += Math.sin(ang) * e.speed * sf * dt;
     } else if (e.kind === "shooter"){
       const keep = 380;
       if (d > keep + 60) { e.x += Math.cos(ang)*e.speed*sf*dt; e.y += Math.sin(ang)*e.speed*sf*dt; }
@@ -1220,20 +1399,55 @@ function update(dt){
       e.x += Math.cos(ang) * e.speed * sf * dt; e.y += Math.sin(ang) * e.speed * sf * dt;
     } else if (e.kind === "boss"){
       e.x += Math.cos(ang) * e.speed * sf * dt; e.y += Math.sin(ang) * e.speed * sf * dt;
-      e.fireT -= dt;
-      if (e.fireT <= 0){ e.fireT = rand(2.6, 3.8);
-        // radial burst
-        const n = 10;
-        for (let i=0;i<n;i++){ const a = i/n*TAU + rand(-0.1,0.1);
-          fireEbullet(e.x, e.y, Math.cos(a)*300, Math.sin(a)*300, 10, 16, "#ff5555", 4); }
-        play("explosion"); shake = Math.max(shake, 6);
+      if (e.bossKind === "necromancer"){        // ☠ summons minions + triple poison orbs + teleports
+        e.summonT -= dt;
+        if (e.summonT <= 0){ e.summonT = 7;
+          say(e, "RISE, MY MINIONS!", 1.5);
+          for (let i=0;i<2;i++){ spawnQueue += 1; bossIncoming = true; }   // extra minions join the wave
+          spawnEnemy(); spawnEnemy();
+          spawnQueue -= 2;
+          novaRing(e.x, e.y, "#7b2ff7");
+        }
+        e.tpT -= dt;
+        if (e.tpT <= 0){ e.tpT = 8; spawnParticles(e.x, e.y, 14, "#7b2ff7", 150, 0.5);
+          e.x = clamp(tgt.x + rand(-260,260), Bx0()+60, Bx1()-60); e.y = clamp(tgt.y + rand(-200,200), By0()+60, By1()-60);
+          spawnParticles(e.x, e.y, 14, "#7b2ff7", 150, 0.5); }
+        e.fireT -= dt;
+        if (e.fireT <= 0){ e.fireT = rand(2.2, 3.2);
+          const a0 = Math.atan2(tgt.y - e.y, tgt.x - e.x);
+          for (const off of [-0.25, 0, 0.25])
+            fireEbullet(e.x, e.y-10, Math.cos(a0+off)*380, Math.sin(a0+off)*380, 9, 15, "#b26bff", 3.4);
+        }
+      } else if (e.bossKind === "pyrolord"){    // 🔥 leaves burning pools + flame burst + charges
+        e.poolT -= dt;
+        if (e.poolT <= 0){ e.poolT = 3.2;
+          if (firePools.length < 6) firePools.push({ x: tgt.x + rand(-60,60), y: tgt.y + rand(-60,60), r: 95, t: 5 });
+        }
+        e.fireT -= dt;
+        if (e.fireT <= 0){ e.fireT = rand(2.4, 3.4);
+          const n = 12;
+          for (let i=0;i<n;i++){ const a = i/n*TAU + rand(-0.1,0.1);
+            fireEbullet(e.x, e.y, Math.cos(a)*330, Math.sin(a)*330, 10, 17, "#ff8a3d", 4); }
+          play("explosion"); shake = Math.max(shake, 7);
+        }
+        e.chargeT -= dt;
+        if (e.chargeT <= 0){ e.chargeT = rand(6,9); e.chargeSpeed = 2.4; say(e, "BURN IT ALL!", 1.6); }
+        if (e.chargeSpeed > 0){ e.chargeSpeed -= dt; e.x += Math.cos(ang)*e.speed*1.7*dt; e.y += Math.sin(ang)*e.speed*1.7*dt; }
+      } else {                                  // ☠ TITAN (level 1 boss): radial burst + charges
+        e.fireT -= dt;
+        if (e.fireT <= 0){ e.fireT = rand(2.6, 3.8);
+          const n = 10;
+          for (let i=0;i<n;i++){ const a = i/n*TAU + rand(-0.1,0.1);
+            fireEbullet(e.x, e.y, Math.cos(a)*300, Math.sin(a)*300, 10, 16, "#ff5555", 4); }
+          play("explosion"); shake = Math.max(shake, 6);
+        }
+        e.chargeT -= dt;
+        if (e.chargeT <= 0){ e.chargeT = rand(6,9);
+          say(e, pick(BOSS_LINES), 1.6);
+          e.chargeSpeed = 2.4; // brief speed boost
+        }
+        if (e.chargeSpeed > 0){ e.chargeSpeed -= dt; e.x += Math.cos(ang)*e.speed*1.6*dt; e.y += Math.sin(ang)*e.speed*1.6*dt; }
       }
-      e.chargeT -= dt;
-      if (e.chargeT <= 0){ e.chargeT = rand(6,9);
-        say(e, pick(BOSS_LINES), 1.6);
-        e.chargeSpeed = 2.4; // brief speed boost
-      }
-      if (e.chargeSpeed > 0){ e.chargeSpeed -= dt; e.x += Math.cos(ang)*e.speed*1.6*dt; e.y += Math.sin(ang)*e.speed*1.6*dt; }
     }
     const B = mapBorder();
  e.x = clamp(e.x, B.x0 + e.r + BORDER_GAP, B.x1 - e.r - BORDER_GAP);
@@ -1268,7 +1482,19 @@ function update(dt){
     for (const e of enemies){
       if (e.spawnT > 0) continue;
       if (dist(b, e) < e.r + b.r){
-        hurtEnemy(e, b.dmg, b.burn); b.life = 0; break;
+        // 🛡 shielder: frontal shield eats most damage — bullets from behind (or explosives) hurt fully
+        let dmg = b.dmg;
+        if (e.kind === "shielder"){
+          const shAng = e.faceAng !== undefined ? e.faceAng : Math.PI;
+          const hitAng = Math.atan2(b.y - e.y, b.x - e.x);
+          const diff = Math.abs(Math.atan2(Math.sin(hitAng - shAng), Math.cos(hitAng - shAng)));
+          if (diff < 1.1){                        // hit the shield (front ~126°)
+            dmg *= 0.18;
+            floatText(e.x, e.y - e.r - 16, "CLANG!", "#ffd23f");
+            spawnParticles(b.x, b.y, 3, "#ffd23f", 90, 0.3);
+          }
+        }
+        hurtEnemy(e, dmg, b.burn); b.life = 0; break;
       }
     }
   }
@@ -1283,9 +1509,13 @@ function update(dt){
       if (d < o.r + b.r){ b.life = 0; spawnParticles(b.x, b.y, 2, "#ff8888", 70, 0.2); break; }
     }
     const tgt = targetOf(b);
-    if (dist(b, tgt) < tgt.r + b.r && tgt.inv <= 0){ damageEnt(tgt, b.dmg); b.life = 0; }
+    if (dist(b, tgt) < tgt.r + b.r && tgt.inv <= 0){
+      damageEnt(tgt, b.dmg); b.life = 0;
+      if (b.chill && tgt.slowT !== undefined){ tgt.slowT = 2; floatText(tgt.x, tgt.y-58, "❄ CHILLED!", "#9fd8ff"); }
+    }
   }
   ebullets = ebullets.filter(b=>b.life>0);
+  updateFirePools(dt);   // 🔥 pyrolord fire pools burn heroes standing in them
 
   /* ---- pickups ---- */
   for (const k of pickups){
@@ -1449,12 +1679,23 @@ function hurtEnemy(e, dmg, burn){
   spawnParticles(e.x, e.y, 4, e.col, 90, 0.4);
   if (e.hp <= 0 && !e.dead){
     e.dead = true; kills++; streak++;
-    score += (e.kind==="boss"?800 : e.kind==="tank"?150 : 100) + streak*2;
+    score += (e.kind==="boss"?800 : e.kind==="tank"?150 : e.kind==="splitter"?120 : 100) + streak*2;
     const big = e.kind === "boss";
     for (let i=0;i<(big?50:10);i++) spawnParticles(e.x, e.y, 1, big?"#ff5":e.col, big?260:120, 0.6);
-    if (big){ play("boss_roar"); shake = 18; showBanner("TITAN SLAIN!!", "+800"); say(player, pick(hero.joy), 2.4);
-      oracleChat = { who:"ORACLE", text:"IMPOSSIBLE! You slew a Titan!", t:3.5 };
+    if (e.kind === "bomber") explodeEnemy(e, 100, 50 + waveNum*2);   // 💣 bombs go off even when shot
+    if (e.kind === "splitter" && e.canSplit){                      // 🔮 splits into two babies!
+      for (let i=0;i<2;i++){
+        const m = { x: e.x + (i?24:-24), y: e.y + rand(-14,14), r: 10, bubble:null, hurtT:0, sayT: 9,
+          dead:false, spawnT: 0.25, dir:1, ax:0, ay:0 };
+        Object.assign(m, { kind:"mini", hp: 14*scale, maxHp: 14*scale, speed: rand(185,220), col:"#ff9de4", dmg:8 });
+        enemies.push(m);
+      }
+      floatText(e.x, e.y-50, "SPLIT!", "#ff9de4");
+    }
+    if (big){
+      play("boss_roar"); shake = 18; showBanner("FINAL BOSS SLAIN!!", "+800"); say(player, pick(hero.joy), 2.4);
       pickups.push(newPickup("heart")); pickups.push(newPickup("star"));
+      bossDefeated();
     } else {
       if (Math.random()<0.08) pickups.push(newPickup("heart"));
       else if (Math.random()<0.06) pickups.push(newPickup("star"));
@@ -1464,6 +1705,30 @@ function hurtEnemy(e, dmg, burn){
     }
     if (Math.random() < 0.35) setTimeout(()=>{ if (kills) streak = 0; }, 3000);
   }
+}
+/* 🏆 the level's final boss died -> LEVEL COMPLETE -> next level opens */
+function bossDefeated(){
+  const lv = levelOf(waveNum), next = lv + 1, NL = levelDef(next);
+  score += 1500;
+  play("victory");
+  showBanner("🏆 LEVEL " + lv + " COMPLETE!", "the portal opens — " + NL.name.toUpperCase() + " awaits...");
+  oracleChat = { who:"ORACLE", text: pick([
+    "The gate burns open! Level " + next + " — " + NL.name + "!",
+    "Tremendous! But " + NL.name + " crawls with stranger monsters...",
+    "You cleared the level! The next arena's monsters have NEW powers. Beware."]), t: 5 };
+  // reward: both heroes get healed + revived, in position for the next level
+  for (const t of [player, ...(netMode==="host"&&remotePlayer?[remotePlayer]:[])]){
+    if (t && t.maxHp){ t.hp = Math.min(t.maxHp, t.hp + t.maxHp*0.5);
+      if (t.hp <= 0) t.hp = t.maxHp*0.5;
+      floatText(t.x, t.y-70, "LEVEL UP +" + Math.round(t.maxHp*0.5) + " ♥", "#7dff9a");
+      novaRing(t.x, t.y, "#ffd23f");
+    }
+  }
+  if (netMode === "host" && remotePlayer && remotePlayer.hp <= 0){
+    remotePlayer.hp = remotePlayer.maxHp*0.5; toast("P2 REVIVED FOR THE NEXT LEVEL!");
+  }
+  toast("🏆 LEVEL " + lv + " CLEARED — ENTERING " + NL.name.toUpperCase());
+  // enemies list is now empty (boss was last) -> normal "cleared" flow rolls into the next level automatically
 }
 function damagePlayer(dmg){
   const p = player;
@@ -1481,6 +1746,56 @@ function damagePlayer(dmg){
     p.hp = 0; state = "over"; play("death");
     say(p, "tell my staff... I loved it...", 999);
   }
+}
+
+/* ================= EMOTES (BGMI-style, key T) ============ */
+/* Your REAL-PERSON hero performs an emote (kiss, mog, flex...) while the
+   camera zooms in on just them — then zooms back out. Press T again for
+   the next emote in the cycle. */
+const EMOTES = [
+  { icon:"💋", label:"MWAH!",      rain:"❤️",  line:"kiss kiss!" },
+  { icon:"😤", label:"MOGGING!",   rain:"✨",  line:"jawline check. mogged." },
+  { icon:"💪", label:"GYM CHECK!", rain:"💪",  line:"beast mode." },
+  { icon:"🕺", label:"VIBE CHECK!",rain:"🎵",  line:"dance with me!" },
+  { icon:"😹", label:"TOO EASY!",  rain:"😹",  line:"ez clap." },
+  { icon:"🙏", label:"GG WP!",     rain:"🌟",  line:"gg well played." },
+];
+const EMOTE_T = 1.6, EMOTE_CD = 2.2, EMOTE_ZOOM = 1.45;   // zoom is a "lower scale" BGMI camera
+function startEmote(pl, forcedId){
+  if (!pl || pl.emoteT > 0 || (pl.emoteCd||0) > 0 || pl.hp <= 0) return;
+  pl.emoteId = (forcedId !== undefined) ? forcedId : ((pl.emoteId < 0 ? -1 : pl.emoteId) + 1) % EMOTES.length;
+  pl.emoteT = EMOTE_T; pl.emoteCd = EMOTE_CD;
+  const E = EMOTES[pl.emoteId];
+  say(pl, E.line, 1.6);
+  spawnParticles(pl.x, pl.y-30, 12, "#ffd23f", 160, 0.6);
+  play("pickup");
+}
+function drawEmoteCinematic(pl, pr, s){
+  const E = EMOTES[pl.emoteId] || EMOTES[0];
+  const t = EMOTE_T - pl.emoteT;
+  const a = Math.min(1, t*4) * Math.min(1, pl.emoteT*3);
+  const pop = 1 + Math.sin(clamp(t*5, 0, Math.PI)) * 0.35;   // emoji bounces in
+  const yy = pr.y - 78*s - Math.sin(t*5)*5*s;
+  ctx.save(); ctx.globalAlpha = Math.max(0, a);
+  ctx.textAlign = "center";
+  // the emote emoji pops above the glowing hero (no extra model — your hero IS the star)
+  ctx.font = "900 " + Math.max(24, 38*s*pop) + "px Segoe UI";
+  ctx.fillText(E.icon, pr.x, yy);
+  // label under the emoji
+  ctx.font = "900 " + Math.max(10, 12*s) + "px Segoe UI";
+  ctx.fillStyle = "#ffd23f"; ctx.shadowColor = "#ffd23f"; ctx.shadowBlur = 8;
+  ctx.fillText(E.label, pr.x, yy + Math.max(16, 22*s));
+  ctx.shadowBlur = 0;
+  // emoji rain around the character
+  ctx.font = "700 " + Math.max(12, 17*s) + "px Segoe UI";
+  for (let i=0;i<6;i++){
+    const ph = ((t*1.4 + i/6) % 1);
+    const ex = pr.x + Math.sin(i*2.1 + t*3) * 44*s;
+    const ey = pr.y - 10*s - ph * 90*s;
+    ctx.globalAlpha = Math.max(0, a * Math.sin(ph*Math.PI));
+    ctx.fillText(E.rain, ex, ey);
+  }
+  ctx.restore(); ctx.globalAlpha = 1;
 }
 
 /* ================= SUPERPOWER ============================ */
@@ -1530,6 +1845,14 @@ function startUltimate(pl){
     floatText(pl.x, pl.y-70, "+" + heal + " HP", "#7dff9a");
   }
   if (id === "venom") fog = { x: pl.x, y: pl.y, r: 260, t: 4 };   // ☠ toxic cloud
+  if (id === "pirate"){                                     // 🚀 VOID ARMADA — orbital barrage in all directions
+    pl.shieldT = Math.max(pl.shieldT, 2);                   // the captain's armor plating
+    for (let i=0;i<16;i++){
+      const a = i/16*TAU + rand(-0.05,0.05);
+      shoot(pl, a, 560, 42, "#ff8a5c", 300);
+    }
+    play("explosion"); shake = Math.max(shake, 10);
+  }
   startUltimateFx(pl);
 }
 function startUltimateFx(pl){   // emote + dialogue + effect (shared by host & guest)
@@ -1591,6 +1914,13 @@ function drawUltSymbol(id, x, y, s, t){
       for (let i=0;i<8;i++){ const a2 = i/8*TAU + t*0.5;
         ctx.moveTo(x+Math.cos(a2)*11*s, y+Math.sin(a2)*11*s);
         ctx.lineTo(x+Math.cos(a2)*17*s, y+Math.sin(a2)*17*s); }
+      break;
+    case "pirate":  // skull & crossbones
+      ctx.arc(x, y-4*s, 8*s, 0, TAU);
+      ctx.moveTo(x-2*s, y-8*s); ctx.lineTo(x-2*s, y-4*s);
+      ctx.moveTo(x+2*s, y-8*s); ctx.lineTo(x+2*s, y-4*s);
+      ctx.moveTo(x-11*s, y+6*s); ctx.lineTo(x+11*s, y+12*s);
+      ctx.moveTo(x+11*s, y+6*s); ctx.lineTo(x-11*s, y+12*s);
       break;
     default:        // venom: toxic bubbles
       ctx.moveTo(x-1*s, y+2*s); ctx.arc(x-6*s, y+2*s, 5*s, 0, TAU);
@@ -1689,6 +2019,26 @@ function usePowerNow(id, p, aimPt){
       fog = { x: aimPt.x, y: aimPt.y, r: 340, t: 5 };
       say(p, "TOXIC FOG!", 1.5);
       break;
+    case "pirate": {                           // PLASMA BROADSIDE - 3 orbital volleys on the target
+      const cx = aimPt.x, cy = aimPt.y;
+      say(p, "BROADSIDE!!", 1.5);
+      for (let i=0;i<3;i++) setTimeout(()=>{
+        if (state !== "play") return;
+        const bx = cx + rand(-70,70), by = cy + rand(-50,50);
+        novaRing(bx, by, "#ff6b4a");
+        rings.push({ x: bx, y: by, r: 150, t: 0.4, col: "#ffb08a" });
+        spawnParticles(bx, by, 18, "#ff8a5c", 240, 0.6);
+        play("explosion"); shake = Math.max(shake, 9);
+        for (const e of enemies){
+          if (e.dead || e.spawnT > 0) continue;
+          if (dist(e, { x:bx, y:by }) < 200 + e.r){
+            hurtEnemy(e, 85); e.burn = 2;
+            floatText(e.x, e.y-40, "💥", "#ffb08a");
+          }
+        }
+      }, i*170);
+      break;
+    }
   }
   spawnParticles(p.x, p.y, 26, h.theme, 220, 0.7);
 }
@@ -1720,10 +2070,12 @@ function resolveObstacles(ent){
 }
 /* enemy bullet with "born inside cover" records so shots can escape cover */
 function fireEbullet(x, y, vx, vy, r, dmg, col, life){
-  ebullets.push({
+  const b = {
     x, y, vx, vy, r, dmg, col, life,
     startInside: props.filter(o=>o.solid && Math.hypot(x-o.x, y-o.y) < o.r + r + 2)
-  });
+  };
+  ebullets.push(b);
+  return b;
 }
 function spawnParticles(wx, wy, n, col, spd, life){
   for (let i=0;i<n;i++){
@@ -1754,6 +2106,15 @@ function draw(){
   // world layer: everything below drifts with the camera
   ctx.save();
   ctx.translate(-cam.x, -cam.y);
+  /* 🎥 BGMI-style emote camera: zoom onto the performing character (self first, else friend) */
+  const emSelf = (player && player.emoteT > 0 && player.hp > 0) ? player : null;
+  const emMate = ((netMode === "host" ? remotePlayer : remotePlayerLocal) || null);
+  const emTarget = emSelf || ((emMate && emMate.emoteT > 0) ? emMate : null);
+  if (emTarget){
+    const prog = clamp(1 - emTarget.emoteT / EMOTE_T, 0, 1);
+    const z = 1 + (EMOTE_ZOOM - 1) * Math.sin(prog * Math.PI);   // ease in... hold... ease out
+    ctx.translate(emTarget.x, emTarget.y); ctx.scale(z, z); ctx.translate(-emTarget.x, -emTarget.y);
+  }
   drawFloor(0, 0);   // photo locked to the world plane: your blue line NEVER drifts from the characters
   if (p && p.boost > 0) { ctx.shadowColor = "#ffd23f"; }
 
@@ -1769,6 +2130,18 @@ function draw(){
       glow(pr.x, pr.y - 14*pr.s + bob, "#ffd23f");
       drawStar(pr.x, pr.y - 16*pr.s + bob, 10*pr.s);
     }
+  }
+
+  // ---- 🔥 fire pools (pyrolord's burning traps)
+  for (const f of firePools){
+    const pr = project(f.x, f.y);
+    const fl = 0.72 + Math.sin(performance.now()/85 + f.x)*0.28;
+    ctx.globalAlpha = 0.55 * Math.min(1, f.t) * fl;
+    const g = ctx.createRadialGradient(pr.x, pr.y, 2, pr.x, pr.y, f.r*pr.s);
+    g.addColorStop(0, "#ffd23f"); g.addColorStop(0.45, "#ff7a2f"); g.addColorStop(1, "rgba(255,60,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(pr.x, pr.y, f.r*pr.s, f.r*pr.s*0.5, 0, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   // ---- blizzard
@@ -2098,6 +2471,8 @@ function drawPlayer(p){
   const bw = 44*s;
   ctx.fillStyle = "rgba(0,0,0,.45)"; roundRect(bx-bw/2, pr.y+6, bw, 5*s, 3); ctx.fill();
   ctx.fillStyle = "#5cff9d"; roundRect(bx-bw/2+1, pr.y+7, (bw-2)*clamp(p.hp/p.maxHp,0,1), 3*s, 2); ctx.fill();
+  // 😊 emote: emoji pop + rain above the glowing hero
+  if (p.emoteT > 0 && p.hp > 0) drawEmoteCinematic(p, pr, s);
 }
 
 function drawHeroBody(x, y, s, h, dir, bob, boost){
@@ -2210,6 +2585,15 @@ function drawWeapon(x, y, s, dir, h){
       ctx.strokeStyle = "#e2b93b"; ctx.lineWidth = 3*s;
       ctx.beginPath(); ctx.moveTo(wx-2*s, y+2*s); ctx.lineTo(wx+8*s, y+2*s); ctx.stroke();
       break;
+    case "blaster":                                 // Pirate: plasma pistol
+      ctx.fillStyle = "#5a6a7a";
+      roundRect(wx-2*s, y-8*s, 11*s, 5*s, 2*s); ctx.fill();
+      ctx.fillStyle = "#3a4a5a";
+      roundRect(wx-1*s, y-4*s, 4*s, 8*s, 1.5*s); ctx.fill();
+      glow(wx+9*s, y-6*s, h.color);
+      ctx.fillStyle = h.color2;
+      ctx.beginPath(); ctx.arc(wx+9*s, y-5.5*s, 2.2*s, 0, TAU); ctx.fill();
+      break;
     case "gauntlet":                                // Venom: energy fist
       glow(wx+3*s, y-4*s, "#8ae23c");
       ctx.fillStyle = h.color;
@@ -2304,6 +2688,20 @@ function drawEnemy(e){
     ctx.beginPath(); ctx.moveTo(pr.x+22*s, y-30*s); ctx.quadraticCurveTo(pr.x+34*s, y-52*s, pr.x+14*s, y-46*s); ctx.stroke();
     ctx.strokeStyle = "rgba(255,60,60,.7)"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.ellipse(pr.x, pr.y, 60*s + Math.sin(performance.now()/150)*6*s, 26*s, 0, 0, TAU); ctx.stroke();
+    if (e.bossKind === "necromancer"){          // ☠ LEVEL 2 BOSS: purple hood + soul eyes
+      ctx.fillStyle = "rgba(123,47,247,.55)";
+      ctx.beginPath(); ctx.arc(pr.x, y - 24*s, 21*s, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = "#63ff9b";
+      ctx.beginPath(); ctx.arc(pr.x-9*s, y-12*s, 4*s, 0, TAU); ctx.arc(pr.x+9*s, y-12*s, 4*s, 0, TAU); ctx.fill();
+    } else if (e.bossKind === "pyrolord"){      // 🔥 LEVEL 3 BOSS: living flame crown
+      for (let i=-2;i<=2;i++){
+        const fh = (9 + Math.sin(performance.now()/120 + i*1.7)*4)*s;
+        ctx.fillStyle = i===0 ? "#ffd23f" : "#ff7a2f";
+        ctx.beginPath(); ctx.moveTo(pr.x + i*10*s - 4*s, y-30*s);
+        ctx.quadraticCurveTo(pr.x + i*10*s, y-30*s-fh*1.6, pr.x + i*10*s + 4*s, y-30*s);
+        ctx.fill();
+      }
+    }
   } else if (e.kind === "shooter"){
     ctx.fillStyle = body;
     ctx.beginPath(); ctx.moveTo(pr.x, y-16*s); ctx.lineTo(pr.x+14*s, y+8*s); ctx.lineTo(pr.x-14*s, y+8*s); ctx.closePath(); ctx.fill();
@@ -2318,6 +2716,68 @@ function drawEnemy(e){
     ctx.fillStyle = "#0c3512"; roundRect(pr.x-13*s, y-6*s, 26*s, 8*s, 3*s); ctx.fill();
     ctx.fillStyle = "#ff8"; 
     ctx.beginPath(); ctx.arc(pr.x-8*s, y-2*s, 2.5*s, 0,TAU); ctx.arc(pr.x+8*s, y-2*s, 2.5*s, 0,TAU); ctx.fill();
+  } else if (e.kind === "wraith"){              // 👻 LEVEL 2: ghost — nearly invisible while phasing
+    if (e.phaseT > 0) ctx.globalAlpha *= 0.25;
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.moveTo(pr.x-12*s, y+10*s);
+    ctx.quadraticCurveTo(pr.x-14*s, y-14*s, pr.x, y-14*s);
+    ctx.quadraticCurveTo(pr.x+14*s, y-14*s, pr.x+12*s, y+10*s);
+    ctx.lineTo(pr.x+6*s, y+4*s); ctx.lineTo(pr.x, y+10*s); ctx.lineTo(pr.x-6*s, y+4*s);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#0a2a24";
+    ctx.beginPath(); ctx.arc(pr.x-4.5*s, y-6*s, 2.6*s, 0, TAU); ctx.arc(pr.x+4.5*s, y-6*s, 2.6*s, 0, TAU); ctx.fill();
+  } else if (e.kind === "bomber"){              // 💣 LEVEL 2: round bomb — flashes as the fuse burns
+    const fuse = e.fuseT >= 0;
+    ctx.fillStyle = flash ? "#fff" : (fuse && Math.sin(performance.now()/(50 + e.fuseT*40)) > 0 ? "#ff4020" : body);
+    ctx.beginPath(); ctx.arc(pr.x, y, 13*s, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#5a3a10"; ctx.lineWidth = 2.5*s;
+    ctx.beginPath(); ctx.moveTo(pr.x+4*s, y-11*s); ctx.quadraticCurveTo(pr.x+10*s, y-18*s, pr.x+6*s, y-20*s); ctx.stroke();
+    if (fuse){
+      ctx.fillStyle = "#ffd23f";
+      ctx.beginPath(); ctx.arc(pr.x+6*s, y-21*s, 3*s + Math.sin(performance.now()/50)*1.5*s, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(pr.x-4*s, y-3*s, 2.6*s, 0, TAU); ctx.arc(pr.x+4*s, y-3*s, 2.6*s, 0, TAU); ctx.fill();
+  } else if (e.kind === "medic"){               // 💚 LEVEL 2: healer — pulsing heal ring while healing
+    ctx.fillStyle = body;
+    roundRect(pr.x-10*s, y-12*s, 20*s, 22*s, 6*s); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(pr.x-2*s, y-9*s, 4*s, 13*s);
+    ctx.fillRect(pr.x-7*s, y-4*s, 14*s, 4*s);
+    if (e.healing > 0){
+      ctx.strokeStyle = "rgba(99,255,155,.8)"; ctx.lineWidth = 2.5*s;
+      ctx.beginPath(); ctx.arc(pr.x, y, 20*s + Math.sin(performance.now()/80)*3*s, 0, TAU); ctx.stroke();
+    }
+  } else if (e.kind === "splitter" || e.kind === "mini"){   // 🔮 LEVEL 3: blob with a split seam
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.arc(pr.x, y, (e.kind==="mini"?8:15)*s, 0, TAU); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.55)";
+    ctx.beginPath(); ctx.arc(pr.x-5*s, y-5*s, (e.kind==="mini"?2.5:4.5)*s, 0, TAU);
+    ctx.arc(pr.x+6*s, y+2*s, (e.kind==="mini"?2:3.5)*s, 0, TAU); ctx.fill();
+    if (e.kind === "splitter"){
+      ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 1.5*s;
+      ctx.beginPath(); ctx.moveTo(pr.x, y-15*s); ctx.lineTo(pr.x, y+15*s); ctx.stroke();
+    }
+  } else if (e.kind === "frostcaster"){         // ❄ LEVEL 3: ice mage with a shard orb
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.moveTo(pr.x-12*s, y+10*s); ctx.lineTo(pr.x-8*s, y-12*s);
+    ctx.lineTo(pr.x+8*s, y-12*s); ctx.lineTo(pr.x+12*s, y+10*s); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#eaf7ff";
+    ctx.beginPath(); ctx.arc(pr.x, y-18*s, 5*s + Math.sin(performance.now()/150)*1.2*s, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#0a3550";
+    ctx.beginPath(); ctx.arc(pr.x-3.5*s, y-4*s, 2.2*s, 0, TAU); ctx.arc(pr.x+3.5*s, y-4*s, 2.2*s, 0, TAU); ctx.fill();
+  } else if (e.kind === "shielder"){            // 🛡 LEVEL 3: beast behind a golden frontal shield
+    ctx.fillStyle = body;
+    roundRect(pr.x-16*s, y-13*s, 32*s, 24*s, 7*s); ctx.fill();
+    ctx.fillStyle = "#7a4a00";
+    ctx.beginPath(); ctx.arc(pr.x-6*s, y-3*s, 2.8*s, 0, TAU); ctx.arc(pr.x+6*s, y-3*s, 2.8*s, 0, TAU); ctx.fill();
+    const fa = e.faceAng !== undefined ? e.faceAng : Math.PI;
+    ctx.save();
+    ctx.translate(pr.x + Math.cos(fa)*20*s, y + Math.sin(fa)*8*s); ctx.rotate(fa);
+    ctx.fillStyle = "rgba(255,210,63,.85)";
+    ctx.beginPath(); ctx.ellipse(0, 0, 5*s, 20*s, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#fff2b0"; ctx.lineWidth = 2*s; ctx.stroke();
+    ctx.restore();
   } else { // crawler
     ctx.fillStyle = body;
     ctx.beginPath(); ctx.arc(pr.x, y, 12*s, 0, TAU); ctx.fill();
